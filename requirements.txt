@@ -19,4 +19,4 @@ neuralforecast>=1.6
 torch>=2.1
 pytorch-lightning>=2.1
 
-git+https://github.com/vcerqueira/medium-articles/tree/main/src/seasonality.py
+
