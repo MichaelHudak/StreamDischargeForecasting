@@ -15,7 +15,7 @@ from sktime.forecasting.arima import AutoARIMA
 from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.utils.plotting import plot_windows, plot_series
 from sktime.forecasting.model_selection import ForecastingGridSearchCV
-#from sktime.performance_metrics.forecasting import MeanSquaredError
+from sktime.performance_metrics.forecasting import MeanSquaredError
 
 #from sktime.forecasting.model_selection import ExpandingWindowSplitter, SingleWindowSplitter
 from sktime.split import (
@@ -34,6 +34,11 @@ from permetrics.regression import RegressionMetric
 # LSTM libraries
 from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.split import temporal_train_test_split
+
+loc_stat_ids = {
+    "USGS-392104077554801" : "31200", #gw site w/ readings at 12:00, ft
+}
+
 
 def get_stream_data(site_id):
     global START_DATE, END_DATE
@@ -81,26 +86,6 @@ def merge_dfs(gw_df, sw_df):
     return merged_df
 
 
-# ## Test cleaning below \\I/
-# gw_df = get_gw_data(gw_code)
-# stream_df = get_stream_data(stream_code)
-# combined_hydro_df = merge_dfs(gw_df, stream_df)
-# ## Seasonality analysis
-
-# In[ ]:
-
-
-# downloaded from https://github.com/vcerqueira/blog/tree/main/src
-#seasonal_strength(combined_df['discharge'], period=365)
-
-
-# The authors of the seasonal_strength method recommend applying seasonal differencing if seasonal_strength is > 0.64.
-# Because the seasonal_strength does not surpass the threshold and because seasonal variation will be accounted for with meteorological variables, no seasonal differencing will be applied.
-
-# ## Preprocessing hydro data
-
-# In[ ]:
-
 
 # Pass in the combined_df that includes 'gw_level' and 'discharge'
 def process_hydro_data(df, show_plots = False):
@@ -144,23 +129,6 @@ def process_hydro_data(df, show_plots = False):
     return output_df
 
 
-
-# In[ ]:
-
-
-#processed_hydro_df = process_hydro_data(combined_hydro_df, show_plots=False)
-
-
-# In[ ]:
-
-
-#print(processesd_hydro_df.isna().sum())
-
-
-# At this point, log_dis and log_gw both underwent a logarthimic transform to normalize their skew from their most extreme values. gw_level had to be reflected first because logarithmic transformation shifts values to the left. Both skew coefficients are between -1 and 1, which suggests relative normality. Therefore, we can use MinMaxScaler() on these series.
-
-# ## Read, process, and merge weather data
-
 # In[ ]:
 
 
@@ -181,6 +149,9 @@ def process_weather_from_csv(csv_path):
 
 
 # In[ ]:
+
+# downloaded from https://github.com/vcerqueira/blog/tree/main/src
+#print(f"Seasonal strength of {letter}: {seasonal_strength(combined_hydro_df['discharge'], period=365)}")
 
 
 # Merges and sorts dfs to enter model training
@@ -211,46 +182,16 @@ def include_gw(df, yes_no):
         return df.loc[:, df.columns != 'log_gw']
 
 
-# In[ ]:
-
-
-# csv_path = r''
-# site_letter = ''
-# weather_df = process_weather_from_csv(data_source_dict[site_letter]['weather'])
-# unsplit_df = merge_hydro_weather(processed_hydro_df, weather_df)
-
-
-# In[ ]:
-
-
-# unsplit_df.head()
-
-
-# In[ ]:
-
-
-# na_counts = unsplit_df.isna().sum()
-# print(na_counts)
-
-
-# ## Data splitting
-# Methods explained by: https://www.youtube.com/watch?v=27SGf2w62ic
-
-# In[14]:
-
-
-#def train
-
 # Splits train and test data, kwwping the real test data out of model training
 # Will still split X_train and y_train for validation
-def data_split(unsplit_df):
+def data_split(unsplit_df, forecast_horizon):
     y_train_val, y_test, X_train_val, X_test = temporal_train_test_split(
                                 y=unsplit_df['log_discharge'],
                                 X=unsplit_df.loc[:, unsplit_df.columns != 'log_discharge'],
-                                test_size = 30) #number of rows to include in test set
-#X_train = X_train.drop(['dates'], axis=1)
-# In[ ]:
+                                test_size = forecast_horizon) #number of rows to include in test set
+    return y_train_val, y_test, X_train_val, X_test
 
+# In[ ]:
 
 def forecast_list(yt):
     forecast_length = 0
@@ -261,28 +202,9 @@ def forecast_list(yt):
     return fh_list
 
 
-# In[ ]:
-
-
-# Creates a validation set to score model, different from the test set
-#cv = ExpandingWindowSplitter(initial_window = 365, fh=fh_list, step_length = 365) #about 1/3 of a year
-# def set_splitter(fh_list, y_train):
-#     cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train) - fh_list[-1])
-#     plot_windows(cv=cv, y=y_train)
-#     cv.get_n_splits(y=y_train)
-#     return cv
-# ## LSTM
-
-# In[ ]:
-
-
 # https://stackoverflow.com/questions/63903016/calculate-nash-sutcliff-efficiency
 def nse(predictions, targets):
     return 1 - (np.sum((targets - predictions) ** 2) / np.sum((targets - np.mean(targets)) ** 2))
-
-
-# In[ ]:
-
 
 # https://permetrics.readthedocs.io/en/v2.0.0/pages/regression/NSE.html
 def permetric_nse(y_true, y_pred):
@@ -294,9 +216,6 @@ def permetric_nse(y_true, y_pred):
 
     evaluator = RegressionMetric(y_true, y_pred)
     print(evaluator.NSE(multi_output="raw_values"))
-
-
-# In[ ]:
 
 
 # https://permetrics.readthedocs.io/en/v2.0.0/pages/regression/KGE.html
@@ -319,39 +238,8 @@ def calc_all_metrics(y_true, y_pred):
     results = evaluator.calculate_all_metrics(metrics=["MAE", "RMSE", "R2", "MAPE", "KGE", "NSE"])
     return results
 
-def set_lstm_test():
-    lstm = NeuralForecastLSTM(  
-        local_scaler_type = 'minmax',
-        futr_exog_list= None, # we would not know future values, so the model shouldn't
-        verbose_fit = True,
-        verbose_predict = True,
-        #early_stop_patience_steps = 1,
-        #val_check_steps = 1,
-        input_size = -1, # uses all historical data
-        #encoder_n_layers = 2,
-        #encoder_hidden_size = 200,
-        max_steps = 100
-    )
-    param_grid = {
-        'encoder_n_layers' : [2,3],
-        'encoder_hidden_size' : [200, 300, 400],
-        'batch_size' : [64, 128],
-    }
 
-    gscv = ForecastingGridSearchCV(
-        forecaster=lstm,
-        param_grid=param_grid,
-        cv=cv,
-        verbose=2,
-        scoring=MeanSquaredError(square_root=True), # RMSE
-        error_score='raise',
-    )
-
-    return gscv
-# In[ ]:
-
-
-def gscv_lstm():
+def set_lstm_test(cv):
     lstm = NeuralForecastLSTM(  
         local_scaler_type = 'minmax',
         futr_exog_list= None, # we would not know future values, so the model shouldn't
@@ -381,3 +269,6 @@ def gscv_lstm():
     )
 
     return gscv
+
+
+
