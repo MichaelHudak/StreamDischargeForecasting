@@ -6,8 +6,6 @@ seaborn>=0.13
 
 dataretrieval>=1.0
 
-pmdarima>=2.0
-
 sktime>=0.25
 
 scikit-learn>=1.3
@@ -16,7 +14,7 @@ permetrics>=1.4
 
 # Required for NeuralForecastLSTM
 neuralforecast>=1.6
-torch>=2.1
-pytorch-lightning>=2.1
+
+
 
 
