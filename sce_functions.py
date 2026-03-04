@@ -270,5 +270,22 @@ def set_lstm_test(cv):
 
     return gscv
 
+# Returns a dataframe of daily averages for each input variable
+def avg_by_date(training_df):
+    training_df['dates'] = pd.to_datetime(training_df.index)
+    daily_avg = training_df.groupby(
+        [training_df['dates'].dt.month, training_df['dates'].dt.day]).mean()
+    daily_avg.index.names = ['Month', 'Day']
+    daily_avg = daily_avg.drop('dates', axis=1)
+    return daily_avg
 
+def future_X_values(y_test, avg_X_all):
+    # Build list of (month, day) tuples for forecast horizon
+    md_tuples = [(d.month, d.day) for d in y_test.index]
 
+    # Select matching rows in one shot
+    avg_X_forecast = avg_X_all.loc[md_tuples].copy()
+
+    # Assign forecast dates as index
+    avg_X_forecast.index = y_test.index
+    return avg_X_forecast

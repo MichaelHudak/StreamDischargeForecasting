@@ -105,10 +105,12 @@ unsplit_df_no_gw = include_gw(combined_df, yes_no=False)
 y_train_val, y_test, X_train_val, X_test = data_split(unsplit_df, forecast_horizon=30)
 fh_list = forecast_list(y_test)
 
-#cv = ExpandingWindowSplitter(initial_window = 365, fh=fh_list, step_length = 365) #about 1/3 of a year
-cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val) - fh_list[-1])
-
-
+cv = ExpandingWindowSplitter(initial_window = 
+                             int(len(y_train_val)-360), 
+                             fh=fh_list, 
+                             step_length = len(fh_list)
+                             ) 
+#cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val) - fh_list[-1])
 gscv_lstm = set_lstm_test(cv)
 gscv_lstm.fit(y_train_val, X=X_train_val, fh=fh_list)
 print(f"Best parameters for {letter}: {gscv_lstm.best_params_}")
@@ -121,115 +123,29 @@ lstm_scores = calc_all_metrics()
 print(lstm_scores)
 
 
-# In[ ]:
+# In[ ]: ARIMAX
 
+avg_X_all = avg_by_date(X_train_val) 
+future_X_values = future_X_values(y_test, avg_X_all)
 
-# Returns a dataframe of daily averages for each input variable
-def avg_by_date(training_df):
-    training_df['dates'] = pd.to_datetime(training_df.index)
-    daily_avg = training_df.groupby(
-        [training_df['dates'].dt.month, training_df['dates'].dt.day]).mean()
-    daily_avg.index.names = ['Month', 'Day']
-    daily_avg = daily_avg.drop('dates', axis=1)
-    return daily_avg
+gscv_arima = set_arima_gscv()
 
+def set_arima_gscv();
+    arima = AutoARIMA(
+        sp=1, d=1, max_p=2, max_q=2
+    )
 
-# In[ ]:
-
-
-avg_X_all = avg_by_date(X_train)
-avg_X_all.head()
-
-
-# In[ ]:
-
-
-avg_X_test.loc[[(1,4)]]
-
-
-# In[ ]:
-
-
-# Build list of (month, day) tuples for forecast horizon
-md_tuples = [(d.month, d.day) for d in y_test.index]
-
-# Select matching rows in one shot
-avg_X_forecast = avg_X_all.loc[md_tuples].copy()
-
-# Assign forecast dates as index
-avg_X_forecast.index = y_test.index
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-y_test.head()
-
-
-# In[ ]:
-
-
-arima = AutoARIMA(
-    sp=1, d=1, max_p=2, max_q=2
-)
-#arima.fit(y_train, X=X_train, fh=fh_list)
-
-
-# In[ ]:
-
-
-X_train
-
-
-# In[ ]:
 
 
 arima.fit(y_train, X=X_train, fh=fh_list)
 
-
-# In[ ]:
-
-
-type(avg_X)
-
-
-# In[ ]:
-
-
 y_arima_pred = arima.predict(X=avg_X_forecast)
-
-
-# In[ ]:
-
 
 arima.score(y_test, X=avg_X_forecast)
 
-
-# In[ ]:
-
-
 y_arima_pred.name
-
-
-# In[ ]:
-
-
 arima.summary()
 
-
-# In[ ]:
-
-
-y_test
-
-
-# In[ ]:
 
 
 fig_df = pd.merge(y_test, y_arima_pred, how='right', left_on='index', right_on=y_arima_pred.index)
