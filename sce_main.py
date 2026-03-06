@@ -28,7 +28,7 @@ from dataretrieval import waterdata, nwis, utils
 from datetime import date, datetime
 
 # seasonality should be downloaded from GitHub link & in directory
-from seasonality import seasonal_strength
+#from seasonality import seasonal_strength
 
 import sktime
 from sktime.forecasting.arima import AutoARIMA
@@ -64,7 +64,13 @@ USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 
 # In[ ]:
 loc_stat_ids = {
-    "USGS-392104077554801" : "31200", #gw site w/ readings at 12:00, ft
+    #gw site w/ readings at 12:00, ft -- 31200
+    # Depth to water level, feet below land surface -- 72019
+    'USGS-400209077183301' : 72019, 
+    'USGS-402735077100901' : 72019, 
+    'USGS-412427076594401' : 72019, 
+    'USGS-420710077052101' : 72019, 
+    'USGS-420815076155501' : 72019, 
 }
 
 data_source_dict = {
@@ -85,15 +91,15 @@ data_source_dict = {
 
 
 letter = "A"
-stream_df = get_stream_data(letter["stream"])
-gw_df = get_gw_data(letter["gw"])
+stream_df = get_stream_data(data_source_dict[letter]["stream"])
+gw_df = get_gw_data(data_source_dict[letter]["gw"])
 combined_hydro_df = merge_dfs(gw_df, stream_df)
 normalized_hydro_df = process_hydro_data(combined_hydro_df)
 
 
-weather_df = process_weather_from_csv(letter["weather"])
+weather_df = process_weather_from_csv(data_source_dict[letter]["weather"])
 combined_df = merge_hydro_weather(normalized_hydro_df, weather_df)
-
+print(combined_df.head())
 
 unsplit_df = include_gw(combined_df, yes_no=True)
 unsplit_df_no_gw = include_gw(combined_df, yes_no=False)
@@ -113,6 +119,7 @@ cv = ExpandingWindowSplitter(initial_window =
 
 ## LSTM ONLY
 gscv_lstm = set_lstm_test(cv)
+print("Fitting LSTM model...")
 gscv_lstm.fit(y_train_val, X=X_train_val, fh=fh_list)
 print(f"Best parameters for {letter}: {gscv_lstm.best_params_}")
 
@@ -122,8 +129,8 @@ y_lstm_pred = lstm_forecast_model.predict()
 
 
 lstm_scores = calc_all_metrics(y_test, y_lstm_pred)
+print("LSTM Scores:")
 print(lstm_scores)
-
 
 
 
@@ -133,11 +140,13 @@ future_X_values = find_future_X_values(y_test, avg_X_all)
 
 
 gscv_arima = set_arima_gscv()
+print("Fitting ARIMA model...")
 gscv_arima.fit(y_train_val, X=X_train_val, fh=fh_list)
 y_arima_pred = gscv_arima.predict(X=future_X_values)
 
 
 arima_scores = calc_all_metrics(y_test, y_arima_pred)
+print("ARIMA Scores:")
 print(arima_scores)
 
 

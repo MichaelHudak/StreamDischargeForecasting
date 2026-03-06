@@ -9,7 +9,7 @@ from dataretrieval import waterdata, nwis, utils
 from datetime import date, datetime
 
 # seasonality should be downloaded from GitHub link & in directory
-from seasonality import seasonal_strength
+#from seasonality import seasonal_strength
 
 import sktime
 from sktime.forecasting.arima import AutoARIMA
@@ -36,9 +36,19 @@ from permetrics.regression import RegressionMetric
 from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.split import temporal_train_test_split
 
+# ## Define constants & codes
+START_DATE= "2016-01-01"
+END_DATE = "2025-01-01"
+USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 
 loc_stat_ids = {
-    "USGS-392104077554801" : "31200", #gw site w/ readings at 12:00, ft
+    #gw site w/ readings at 12:00, ft -- 31200
+    # Depth to water level, feet below land surface -- 72019
+    'USGS-400209077183301' : 72019, 
+    'USGS-402735077100901' : 72019, 
+    'USGS-412427076594401' : 72019, 
+    'USGS-420710077052101' : 72019, 
+    'USGS-420815076155501' : 72019, 
 }
 
 def get_stream_data(site_id):
@@ -99,9 +109,10 @@ def process_hydro_data(df, show_plots = False):
     # Reflect gw to be right-skewed
     if gw.skew() < 0:
         reflected_gw = gw.max() - df['gw_level'] + 1
+        log_gw = np.log(reflected_gw)
+    else:
+        log_gw = np.log(gw)
 
-
-    log_gw = np.log(reflected_gw)
     log_dis = np.log(dis)
     print(f"Skew value of logarithmic groundwater: {log_gw.skew()},\n and logarithmic discharge: {log_dis.skew()}")
 
