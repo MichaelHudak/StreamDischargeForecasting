@@ -1,4 +1,4 @@
-
+import os
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -374,10 +374,11 @@ def forecast_vs_actual_plot(y_true, y_lstm_pred, y_arima_pred):
     plt.show()
 
 def save_data(letter, pre_model_df, y_true, y_lstm_pred, y_arima_pred, X_true):
-    pre_model_df.to_csv(f"C:/Users/hudak/OneDrive - Washington College/SCE/{letter}/{letter}_pre_model_data.csv")
+    os.makedirs(letter, exist_ok=True)
+    pre_model_df.to_csv(f"{letter}/{letter}_pre_model_data.csv")
     forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred': y_lstm_pred, 'y_arima_pred': y_arima_pred})
     forecast_df = pd.concat([forecast_df, X_true], ignore_index=True, axis=1)
-    forecast_df.to_csv(f"C:/Users/hudak/OneDrive - Washington College/SCE/{letter}/{letter}_forecast_data.csv")
+    forecast_df.to_csv(f"{letter}/{letter}_forecast_data.csv")
 
 # def time_series_plot():
 #     sns.lineplot(x="time", y="log_discharge",

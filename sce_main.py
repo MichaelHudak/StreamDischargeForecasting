@@ -75,15 +75,15 @@ loc_stat_ids = {
 
 data_source_dict = {
     'A' : {'stream': 'USGS-1571184', 'gw': 'USGS-400209077183301',
-               'weather' : r"C:\Users\hudak\OneDrive - Washington College\SCE\SCE Weather Data\A_Biglerville_weather.csv"},
+               'weather' : r"weather_data\A_Biglerville_weather.csv"},
     'B' : {'stream': 'USGS-1567000', 'gw': 'USGS-402735077100901',
-               'weather' : r"C:\Users\hudak\OneDrive - Washington College\SCE\SCE Weather Data\B_Lewistown_weather.csv"},
+               'weather' : r"weather_data\B_Lewistown_weather.csv"},
     'C' : {'stream': 'USGS-1550000', 'gw': 'USGS-412427076594401',
-               'weather' : r"C:\Users\hudak\OneDrive - Washington College\SCE\SCE Weather Data\C_Williamsport_weather.csv"},
+               'weather' : r"weather_data\C_Williamsport_weather.csv"},
     'D' : {'stream': 'USGS-1526500', 'gw': 'USGS-420710077052101',
-               'weather' : r"C:\Users\hudak\OneDrive - Washington College\SCE\SCE Weather Data\D_Corning_weather.csv"},
+               'weather' : r"weather_data\D_Corning_weather.csv"},
     'E' : {'stream': 'USGS-1514000', 'gw': 'USGS-420815076155501',
-               'weather' : r"C:\Users\hudak\OneDrive - Washington College\SCE\SCE Weather Data\E_Binghamton_weather.csv"}
+               'weather' : r"weather_data\E_Binghamton_weather.csv"}
 }
 
 
