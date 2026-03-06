@@ -1,14 +1,18 @@
+
 import pandas as pd
 import numpy as np
 import plotly.express as px
+
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dataretrieval import waterdata, nwis, utils
 from datetime import date, datetime
 
-# seasonality should be downloaded from GitHub link & in directory 
+
+# seasonality should be downloaded from GitHub link & in directory
 from seasonality import seasonal_strength
+
 
 import sktime
 from sktime.forecasting.arima import AutoARIMA
@@ -16,6 +20,7 @@ from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.utils.plotting import plot_windows, plot_series
 from sktime.forecasting.model_selection import ForecastingGridSearchCV
 from sktime.performance_metrics.forecasting import MeanSquaredError
+
 
 #from sktime.forecasting.model_selection import ExpandingWindowSplitter, SingleWindowSplitter
 from sktime.split import (
@@ -29,19 +34,25 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split
 
+
 from permetrics.regression import RegressionMetric
+
 
 # LSTM libraries
 from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.split import temporal_train_test_split
+
 
 loc_stat_ids = {
     "USGS-392104077554801" : "31200", #gw site w/ readings at 12:00, ft
 }
 
 
+
+
 def get_stream_data(site_id):
     global START_DATE, END_DATE
+
 
     df, metadata = waterdata.get_daily(
         monitoring_location_id = site_id,
@@ -49,17 +60,24 @@ def get_stream_data(site_id):
         time = f"{START_DATE}/{END_DATE}"
     )
 
+
     condensed_df = df[['time', 'value']]
     return condensed_df
+
+
 
 
 # In[ ]:
 
 
+
+
 def get_gw_data(site_id):
-    #df, metadata = nwis.get_gwlevels(sites=site_id, start=start_date, 
+    #df, metadata = nwis.get_gwlevels(sites=site_id, start=start_date,
                                     #  end="2025-09-30"
                                     # )
+
+
 
 
     df, metadata = waterdata.get_daily(
@@ -70,20 +88,29 @@ def get_gw_data(site_id):
     #print(df.head())
     # select only time/value pairs that represent daily means (statistic_id=='00003')
     # daily maximimun (00001) and daily minimum (00002) are also options
-    cleaned_df = df[['time', 'value']][df['statistic_id']==loc_stat_ids[site_id]] 
+    cleaned_df = df[['time', 'value']][df['statistic_id']==loc_stat_ids[site_id]]
     return cleaned_df
 
 
+
+
 # In[ ]:
+
+
 
 
 def merge_dfs(gw_df, sw_df):
     gw = gw_df.rename(columns={'value':'gw_level'})
     sw = sw_df.rename(columns={'value':'discharge'})
 
+
     merged_df = pd.merge(gw, sw, on='time', how='right')
 
+
     return merged_df
+
+
+
 
 
 
@@ -93,13 +120,16 @@ def process_hydro_data(df, show_plots = False):
     dis = df['discharge']
     print(f"Skew value of groundwater: {gw.skew()},\n and discharge: {dis.skew()}")
 
+
     # Reflect gw to be right-skewed
     if gw.skew() < 0:
         reflected_gw = gw.max() - df['gw_level'] + 1
 
+
     log_gw = np.log(reflected_gw)
     log_dis = np.log(dis)
     print(f"Skew value of logarithmic groundwater: {log_gw.skew()},\n and logarithmic discharge: {log_dis.skew()}")
+
 
     if show_plots == True:
         print('We will display some plots')
@@ -107,21 +137,26 @@ def process_hydro_data(df, show_plots = False):
         plt.title("Groundwater distribution")
         plt.show()
 
+
         sns.histplot(reflected_gw, kde=True, bins=50)
         plt.title("Reflected groundwater distribution")
         plt.show()
+
 
         sns.histplot(log_gw, kde=True, bins=50)
         plt.title("Logarithmic groundwater distribution")
         plt.show()
 
+
         sns.histplot(dis, kde=True, bins=50)
         plt.title("Discharge distribution")
         plt.show()
 
+
         sns.histplot(log_dis, kde=True, bins=50)
         plt.title("Logarithmic discharge distribution")
         plt.show()
+
 
     output_df = pd.concat([df['time'], log_gw, log_dis], axis=1)
     output_df = output_df.rename(columns = {'gw_level':'log_gw', 'discharge':'log_discharge'})
@@ -129,29 +164,42 @@ def process_hydro_data(df, show_plots = False):
     return output_df
 
 
+
+
 # In[ ]:
+
+
 
 
 # Requires a csv path for each weather df
 def process_weather_from_csv(csv_path):
     global START_DATE, END_DATE
 
+
     weather_df = pd.read_csv(rf"{csv_path}", header=1)
+
 
     #Converts to date object
     weather_df['Date'] = pd.to_datetime(weather_df['Date'])
     weather_df['Date'] = weather_df['Date'].dt.date
 
-    weather_df = weather_df.loc[(weather_df['Date'] >= datetime.strptime(START_DATE, "%Y-%m-%d").date()) & 
+
+    weather_df = weather_df.loc[(weather_df['Date'] >= datetime.strptime(START_DATE, "%Y-%m-%d").date()) &
                             (weather_df['Date'] <= datetime.strptime(END_DATE, "%Y-%m-%d").date())]
+
 
     return weather_df
 
 
+
+
 # In[ ]:
+
 
 # downloaded from https://github.com/vcerqueira/blog/tree/main/src
 #print(f"Seasonal strength of {letter}: {seasonal_strength(combined_hydro_df['discharge'], period=365)}")
+
+
 
 
 # Merges and sorts dfs to enter model training
@@ -164,15 +212,21 @@ def merge_hydro_weather(hdf, wdf):
     unscaled_df.set_index('index', inplace=True)
     unscaled_df.index = pd.to_datetime(unscaled_df.index)
 
+
     # Fills in nan values with linear average of nearby points
-    # If the first or last value is NaN, ffill() and bfill() will cover 
+    # If the first or last value is NaN, ffill() and bfill() will cover
     unscaled_df.interpolate(method='linear', inplace=True)
     unscaled_df = unscaled_df.ffill().bfill()
+
 
     return unscaled_df
 
 
+
+
 # In[ ]:
+
+
 
 
 def include_gw(df, yes_no):
@@ -180,6 +234,8 @@ def include_gw(df, yes_no):
         return df
     elif yes_no == False:
         return df.loc[:, df.columns != 'log_gw']
+
+
 
 
 # Splits train and test data, kwwping the real test data out of model training
@@ -191,7 +247,9 @@ def data_split(unsplit_df, forecast_horizon):
                                 test_size = forecast_horizon) #number of rows to include in test set
     return y_train_val, y_test, X_train_val, X_test
 
+
 # In[ ]:
+
 
 def forecast_list(yt):
     forecast_length = 0
@@ -202,20 +260,27 @@ def forecast_list(yt):
     return fh_list
 
 
+
+
 # https://stackoverflow.com/questions/63903016/calculate-nash-sutcliff-efficiency
 def nse(predictions, targets):
     return 1 - (np.sum((targets - predictions) ** 2) / np.sum((targets - np.mean(targets)) ** 2))
+
 
 # https://permetrics.readthedocs.io/en/v2.0.0/pages/regression/NSE.html
 def permetric_nse(y_true, y_pred):
     #y_true = np.array(y_true)
     #y_pred = np.array(y_pred)
 
+
     evaluator = RegressionMetric(y_true, y_pred)
     print(evaluator.nash_sutcliffe_efficiency())
 
+
     evaluator = RegressionMetric(y_true, y_pred)
     print(evaluator.NSE(multi_output="raw_values"))
+
+
 
 
 # https://permetrics.readthedocs.io/en/v2.0.0/pages/regression/KGE.html
@@ -223,20 +288,27 @@ def permetric_kge(y_true, y_pred):
     #y_true = np.array(y_true)
     #y_pred = np.array(y_pred)
 
+
     evaluator = RegressionMetric(y_true, y_pred)
     print(evaluator.kling_gupta_efficiency())
+
 
     evaluator = RegressionMetric(y_true, y_pred)
     print(evaluator.KGE(multi_output="raw_values"))
 
+
 # In[ ]:
 
-# Calculates all listed regression metrics 
+
+# Calculates all listed regression metrics
 def calc_all_metrics(y_true, y_pred):
     evaluator = RegressionMetric(y_true, y_pred)
 
+
     results = evaluator.calculate_all_metrics(metrics=["MAE", "RMSE", "R2", "MAPE", "KGE", "NSE"])
     return results
+
+
 
 
 def set_lstm_test(cv):
@@ -253,11 +325,13 @@ def set_lstm_test(cv):
         max_steps = 100
     )
 
+
     param_grid = {
         'encoder_n_layers' : [2,3],
         'encoder_hidden_size' : [200, 300, 400],
         'batch_size' : [64, 128],
     }
+
 
     gscv = ForecastingGridSearchCV(
         forecaster=lstm,
@@ -268,7 +342,9 @@ def set_lstm_test(cv):
         error_score='raise',
     )
 
+
     return gscv
+
 
 # Returns a dataframe of daily averages for each input variable
 def avg_by_date(training_df):
@@ -279,13 +355,47 @@ def avg_by_date(training_df):
     daily_avg = daily_avg.drop('dates', axis=1)
     return daily_avg
 
-def future_X_values(y_test, avg_X_all):
+
+def find_future_X_values(y_test, avg_X_all):
     # Build list of (month, day) tuples for forecast horizon
     md_tuples = [(d.month, d.day) for d in y_test.index]
+
 
     # Select matching rows in one shot
     avg_X_forecast = avg_X_all.loc[md_tuples].copy()
 
+
     # Assign forecast dates as index
     avg_X_forecast.index = y_test.index
     return avg_X_forecast
+
+
+def set_arima_gscv(cv):
+    arima = AutoARIMA(sp=365)
+
+
+    param_grid={
+        "sp": [365], # sp ==> periods are expected to repeat every 365 measurements
+        "seasonal": [True, False]
+    },
+
+
+    gscv = ForecastingGridSearchCV(
+        forecaster=arima,
+        param_grid=param_grid,
+        cv=cv, # This ensures the expanding splitter takes place
+        verbose=2,
+        scoring=MeanSquaredError(square_root=True), # RMSE
+        error_score='raise',
+    )
+    return gscv
+
+# def time_series_plot():
+#     sns.lineplot(x="time", y="log_discharge",
+#              hue="region", style="event",
+#              data=fmri)
+    
+# def pred_fit_plot(y_pred, y_true):
+#     sns.lineplot(x="time", y="log_discharge",
+#              hue="region", style="event",
+#              data=fmri)
