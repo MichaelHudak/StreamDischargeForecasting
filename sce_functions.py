@@ -222,13 +222,6 @@ def merge_hydro_weather(hdf, wdf):
     return unscaled_df
 
 
-
-
-# In[ ]:
-
-
-
-
 def include_gw(df, yes_no):
     if yes_no == True:
         return df
@@ -389,6 +382,35 @@ def set_arima_gscv(cv):
         error_score='raise',
     )
     return gscv
+
+# Moving average plot
+def moving_average_plot(df, window_size):
+    df['moving_average'] = df['log_discharge'].rolling(window=window_size).mean()
+    sns.lineplot(x=df.index, y=df['log_discharge'], label='Log Discharge')
+    sns.lineplot(x=df.index, y=df['moving_average'], label=f'Moving Average (window={window_size})')
+    plt.title('Log Discharge and Moving Average')
+    plt.xlabel('Date')
+    plt.ylabel('Log Discharge')
+    plt.legend()
+    plt.show()
+
+# Forecast vs actual plot
+def forecast_vs_actual_plot(y_true, y_lstm_pred, y_arima_pred):
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Log Discharge')
+    sns.lineplot(x=y_lstm_pred.index, y=y_lstm_pred.values, label='LSTM Predicted Log Discharge')
+    sns.lineplot(x=y_arima_pred.index, y=y_arima_pred.values, label='ARIMAX Predicted Log Discharge')
+    plt.title('Forecast vs Actual Log Discharge')
+    plt.xlabel('Date')
+    plt.ylabel('Log Discharge')
+    plt.legend()
+    plt.show()
+
+def save_data(letter, pre_model_df, y_true, y_lstm_pred, y_arima_pred, X_true):
+    pre_model_df.to_csv(f"C:/Users/hudak/OneDrive - Washington College/SCE/{letter}_pre_model_data.csv")
+    forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred': y_lstm_pred, 'y_arima_pred': y_arima_pred})
+    forecast_df = pd.concat([forecast_df, X_true], ignore_index=True, axis=1)
+    forecast_df.to_csv(f"C:/Users/hudak/OneDrive - Washington College/SCE/{letter}_forecast_data.csv")
 
 # def time_series_plot():
 #     sns.lineplot(x="time", y="log_discharge",

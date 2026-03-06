@@ -151,10 +151,10 @@ print(f"Best parameters for {letter}: {gscv_lstm.best_params_}")
 
 
 lstm_forecast_model = gscv_lstm.best_forecaster_
-y_pred = lstm_forecast_model.predict()
+y_lstm_pred = lstm_forecast_model.predict()
 
 
-lstm_scores = calc_all_metrics()
+lstm_scores = calc_all_metrics(y_test, y_lstm_pred)
 print(lstm_scores)
 
 
@@ -176,7 +176,8 @@ print(arima_scores)
 
 print(gscv_arima.summary())
 
-
+save_data(letter, pre_model_df=combined_df, y_true=y_test, 
+          y_lstm_pred=y_lstm_pred, y_arima_pred=y_arima_pred, X_true=X_test)
 # In[ ]:
 
 
