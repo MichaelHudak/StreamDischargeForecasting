@@ -7,20 +7,14 @@
 
 # In[2]:
 
-
-
-
 import sys
 import os
 
-
 #get_ipython().system('{sys.executable} -m pip freeze > requirements.txt')
-
 
 # In[41]:
 print(sys.version)
 print(sys.executable)
-
 
 # In[31]:
 from sce_functions import *
@@ -28,16 +22,13 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dataretrieval import waterdata, nwis, utils
 from datetime import date, datetime
 
-
 # seasonality should be downloaded from GitHub link & in directory
 from seasonality import seasonal_strength
-
 
 import sktime
 from sktime.forecasting.arima import AutoARIMA
@@ -45,7 +36,6 @@ from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.utils.plotting import plot_windows, plot_series
 from sktime.forecasting.model_selection import ForecastingGridSearchCV
 from sktime.performance_metrics.forecasting import MeanSquaredError
-
 
 from sktime.split import (
     ExpandingWindowSplitter,
@@ -58,45 +48,24 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split
 
-
 from permetrics.regression import RegressionMetric
-
 
 # LSTM libraries
 from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.split import temporal_train_test_split
 
-
-
-
 # ## Define constants & codes
-
-
-# In[ ]:
-
-
 START_DATE= "2016-01-01"
 END_DATE = "2025-01-01"
 USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
-
 
 # https://api.waterdata.usgs.gov/ogcapi/v0/openapi?f=html#/daily/SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8
 
 
 # In[ ]:
-
-
-
-
 loc_stat_ids = {
     "USGS-392104077554801" : "31200", #gw site w/ readings at 12:00, ft
 }
-
-
-
-
-# In[1]:
-
 
 data_source_dict = {
     'A' : {'stream': 'USGS-1571184', 'gw': 'USGS-400209077183301',
@@ -110,8 +79,6 @@ data_source_dict = {
     'E' : {'stream': 'USGS-1514000', 'gw': 'USGS-420815076155501',
                'weather' : r"C:\Users\hudak\OneDrive - Washington College\SCE\SCE Weather Data\E_Binghamton_weather.csv"}
 }
-
-
 
 
 # In[ ]:

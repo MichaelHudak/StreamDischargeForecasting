@@ -3,16 +3,13 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dataretrieval import waterdata, nwis, utils
 from datetime import date, datetime
 
-
 # seasonality should be downloaded from GitHub link & in directory
 from seasonality import seasonal_strength
-
 
 import sktime
 from sktime.forecasting.arima import AutoARIMA
@@ -20,7 +17,6 @@ from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.utils.plotting import plot_windows, plot_series
 from sktime.forecasting.model_selection import ForecastingGridSearchCV
 from sktime.performance_metrics.forecasting import MeanSquaredError
-
 
 #from sktime.forecasting.model_selection import ExpandingWindowSplitter, SingleWindowSplitter
 from sktime.split import (
@@ -34,9 +30,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split
 
-
 from permetrics.regression import RegressionMetric
-
 
 # LSTM libraries
 from sktime.forecasting.neuralforecast import NeuralForecastLSTM
@@ -47,12 +41,8 @@ loc_stat_ids = {
     "USGS-392104077554801" : "31200", #gw site w/ readings at 12:00, ft
 }
 
-
-
-
 def get_stream_data(site_id):
     global START_DATE, END_DATE
-
 
     df, metadata = waterdata.get_daily(
         monitoring_location_id = site_id,
@@ -65,20 +55,10 @@ def get_stream_data(site_id):
     return condensed_df
 
 
-
-
-# In[ ]:
-
-
-
-
 def get_gw_data(site_id):
     #df, metadata = nwis.get_gwlevels(sites=site_id, start=start_date,
                                     #  end="2025-09-30"
                                     # )
-
-
-
 
     df, metadata = waterdata.get_daily(
         monitoring_location_id = site_id,
@@ -108,11 +88,6 @@ def merge_dfs(gw_df, sw_df):
 
 
     return merged_df
-
-
-
-
-
 
 # Pass in the combined_df that includes 'gw_level' and 'discharge'
 def process_hydro_data(df, show_plots = False):
@@ -164,13 +139,6 @@ def process_hydro_data(df, show_plots = False):
     return output_df
 
 
-
-
-# In[ ]:
-
-
-
-
 # Requires a csv path for each weather df
 def process_weather_from_csv(csv_path):
     global START_DATE, END_DATE
@@ -191,15 +159,10 @@ def process_weather_from_csv(csv_path):
     return weather_df
 
 
-
-
 # In[ ]:
-
 
 # downloaded from https://github.com/vcerqueira/blog/tree/main/src
 #print(f"Seasonal strength of {letter}: {seasonal_strength(combined_hydro_df['discharge'], period=365)}")
-
-
 
 
 # Merges and sorts dfs to enter model training
@@ -230,7 +193,6 @@ def include_gw(df, yes_no):
 
 
 
-
 # Splits train and test data, kwwping the real test data out of model training
 # Will still split X_train and y_train for validation
 def data_split(unsplit_df, forecast_horizon):
@@ -253,8 +215,6 @@ def forecast_list(yt):
     return fh_list
 
 
-
-
 # https://stackoverflow.com/questions/63903016/calculate-nash-sutcliff-efficiency
 def nse(predictions, targets):
     return 1 - (np.sum((targets - predictions) ** 2) / np.sum((targets - np.mean(targets)) ** 2))
@@ -272,8 +232,6 @@ def permetric_nse(y_true, y_pred):
 
     evaluator = RegressionMetric(y_true, y_pred)
     print(evaluator.NSE(multi_output="raw_values"))
-
-
 
 
 # https://permetrics.readthedocs.io/en/v2.0.0/pages/regression/KGE.html
@@ -300,8 +258,6 @@ def calc_all_metrics(y_true, y_pred):
 
     results = evaluator.calculate_all_metrics(metrics=["MAE", "RMSE", "R2", "MAPE", "KGE", "NSE"])
     return results
-
-
 
 
 def set_lstm_test(cv):
@@ -407,10 +363,10 @@ def forecast_vs_actual_plot(y_true, y_lstm_pred, y_arima_pred):
     plt.show()
 
 def save_data(letter, pre_model_df, y_true, y_lstm_pred, y_arima_pred, X_true):
-    pre_model_df.to_csv(f"C:/Users/hudak/OneDrive - Washington College/SCE/{letter}_pre_model_data.csv")
+    pre_model_df.to_csv(f"C:/Users/hudak/OneDrive - Washington College/SCE/{letter}/{letter}_pre_model_data.csv")
     forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred': y_lstm_pred, 'y_arima_pred': y_arima_pred})
     forecast_df = pd.concat([forecast_df, X_true], ignore_index=True, axis=1)
-    forecast_df.to_csv(f"C:/Users/hudak/OneDrive - Washington College/SCE/{letter}_forecast_data.csv")
+    forecast_df.to_csv(f"C:/Users/hudak/OneDrive - Washington College/SCE/{letter}/{letter}_forecast_data.csv")
 
 # def time_series_plot():
 #     sns.lineplot(x="time", y="log_discharge",
