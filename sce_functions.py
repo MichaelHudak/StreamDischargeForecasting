@@ -354,6 +354,14 @@ def find_future_X_values(y_test, avg_X_all):
 def set_arima_gscv(cv):
     arima = AutoARIMA(sp=365)
 
+    # AutoARIMA(
+    #     sp=365,
+    #     max_p=3,
+    #     max_q=3,
+    #     max_P=1,
+    #     max_Q=1,
+    #     stepwise=True
+    # )
 
     param_grid={
         "sp": [365], # sp ==> periods are expected to repeat every 365 measurements
