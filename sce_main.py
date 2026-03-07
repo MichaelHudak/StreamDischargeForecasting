@@ -121,13 +121,13 @@ cv_gw = ExpandingWindowSplitter(initial_window =
 gscv_lstm_gw = set_lstm_test(cv_gw)
 print("Fitting LSTM model...")
 gscv_lstm_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
-print(f"Best parameters for groundwater LSTM {letter}: {gscv_lstm_gw.best_params_}")
+print(f"\n\n\nBest parameters for groundwater LSTM {letter}: {gscv_lstm_gw.best_params_}")
 
 gw_lstm_forecast_model = gscv_lstm_gw.best_forecaster_
 y_lstm_pred_gw = gw_lstm_forecast_model.predict()
 
 lstm_scores_gw = calc_all_metrics(y_test_gw, y_lstm_pred_gw)
-print("LSTM Scores including groundwater:")
+print("\n\nLSTM Scores including groundwater:")
 print(lstm_scores_gw)
 
 # In[ ]: ARIMAX ONLY
@@ -135,15 +135,15 @@ avg_X_all_gw = avg_by_date(X_train_val_gw)
 future_X_values = find_future_X_values(y_test_gw, avg_X_all_gw)
 
 
-gscv_arima_gw = set_arima_gscv()
-print("Fitting groundwater ARIMA model...")
+gscv_arima_gw = set_arima_gscv(cv_gw)
+print("\nFitting groundwater ARIMA model...")
 gscv_arima_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
 y_arima_pred_gw = gscv_arima_gw.predict(X=future_X_values)
 
 arima_scores_gw = calc_all_metrics(y_test_gw, y_arima_pred_gw)
-print("Groundwater ARIMA Scores:")
+print("\n\nGroundwater ARIMA Scores:")
 print(arima_scores_gw)
-print("\n Groundwater ARIMA Model Summary:")
+print("\n\nGroundwater ARIMA Model Summary:")
 print(gscv_arima_gw.summary())
 
 
@@ -178,7 +178,7 @@ avg_X_all_no = avg_by_date(X_train_val_no)
 future_X_values = find_future_X_values(y_test_no, avg_X_all_no)
 
 
-gscv_arima_no = set_arima_gscv()
+gscv_arima_no = set_arima_gscv(cv_no)
 print("Fitting non-groundwater ARIMA model...")
 gscv_arima_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
 y_arima_pred_no = gscv_arima_no.predict(X=future_X_values)

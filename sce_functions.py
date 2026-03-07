@@ -283,11 +283,12 @@ def permetric_kge(y_true, y_pred):
 
 # Calculates all listed regression metrics
 def calc_all_metrics(y_true, y_pred):
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
     evaluator = RegressionMetric(y_true, y_pred)
-
-
-    results = evaluator.calculate_all_metrics(metrics=["MAE", "RMSE", "R2", "MAPE", "KGE", "NSE"])
-    return results
+    dict_result = evaluator.get_metrics_by_list_names(["MAE", "RMSE", "R2", "MAPE", "KGE", "NSE"])
+    
+    return dict_result
 
 
 def set_lstm_test(cv):
@@ -309,7 +310,7 @@ def set_lstm_test(cv):
 
     param_grid = {
         'encoder_n_layers' : [1],
-        'encoder_hidden_size' : [150, 200],
+        'encoder_hidden_size' : [150],
     }
 
 
