@@ -66,34 +66,38 @@ USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 loc_stat_ids = {
     #gw site w/ readings at 12:00, ft -- 31200
     # Depth to water level, feet below land surface -- 72019
-    'USGS-400209077183301' : 72019, 
-    'USGS-402735077100901' : 72019, 
-    'USGS-412427076594401' : 72019, 
-    'USGS-420710077052101' : 72019, 
-    'USGS-420815076155501' : 72019, 
+    'USGS-400209077183301' : "00003", 
+    'USGS-402735077100901' : "00003", 
+    'USGS-412427076594401' : "00003", 
+    'USGS-420710077052101' : "00003", 
+    'USGS-420815076155501' : "00003", 
 }
 
 data_source_dict = {
-    'A' : {'stream': 'USGS-1571184', 'gw': 'USGS-400209077183301',
-               'weather' : r"\weather_data\A_Biglerville_weather.csv"},
-    'B' : {'stream': 'USGS-1567000', 'gw': 'USGS-402735077100901',
-               'weather' : r"\weather_data\B_Lewistown_weather.csv"},
-    'C' : {'stream': 'USGS-1550000', 'gw': 'USGS-412427076594401',
-               'weather' : r"\weather_data\C_Williamsport_weather.csv"},
-    'D' : {'stream': 'USGS-1526500', 'gw': 'USGS-420710077052101',
-               'weather' : r"weather_data\D_Corning_weather.csv"},
-    'E' : {'stream': 'USGS-1514000', 'gw': 'USGS-420815076155501',
-               'weather' : r"\weather_data\E_Binghamton_weather.csv"}
+    'A' : {'stream': 'USGS-01571184', 'gw': 'USGS-400209077183301',
+               'weather' : os.path.join('weather_data', 'A_Biglerville_weather.csv')},
+    'B' : {'stream': 'USGS-01567000', 'gw': 'USGS-402735077100901',
+               'weather' : os.path.join('weather_data', 'B_Lewistown_weather.csv')},
+    'C' : {'stream': 'USGS-01550000', 'gw': 'USGS-412427076594401',
+               'weather' : os.path.join('weather_data', 'C_Williamsport_weather.csv')},
+    'D' : {'stream': 'USGS-01526500', 'gw': 'USGS-420710077052101',
+               'weather' : os.path.join('weather_data', 'D_Corning_weather.csv')},
+    'E' : {'stream': 'USGS-01514000', 'gw': 'USGS-420815076155501',
+               'weather' : os.path.join('weather_data', 'E_Binghamton_weather.csv')}
 }
 
 # In[ ]:
 
 letter = "A"
 stream_df = get_stream_data(data_source_dict[letter]["stream"])
+print(stream_df.head())
+
 gw_df = get_gw_data(data_source_dict[letter]["gw"])
+print(gw_df.head())
+
 combined_hydro_df = merge_dfs(gw_df, stream_df)
 normalized_hydro_df = process_hydro_data(combined_hydro_df)
-
+print(normalized_hydro_df.head())
 
 weather_df = process_weather_from_csv(data_source_dict[letter]["weather"])
 combined_df = merge_hydro_weather(normalized_hydro_df, weather_df)
@@ -102,56 +106,101 @@ print(combined_df.head())
 unsplit_df = include_gw(combined_df, yes_no=True)
 unsplit_df_no_gw = include_gw(combined_df, yes_no=False)
 
+### GROUNDWATER INCLUDED MODELS \/
+y_train_val_gw, y_test_gw, X_train_val_gw, X_test_gw = data_split(unsplit_df, forecast_horizon=30)
+fh_list_gw = forecast_list(y_test_gw)
 
-y_train_val, y_test, X_train_val, X_test = data_split(unsplit_df, forecast_horizon=30)
-fh_list = forecast_list(y_test)
-
-
-cv = ExpandingWindowSplitter(initial_window =
-                             int(len(y_train_val)-360),
-                             fh=fh_list,
-                             step_length = len(fh_list)
+cv_gw = ExpandingWindowSplitter(initial_window =
+                             int(len(y_train_val_gw)-360),
+                             fh=fh_list_gw,
+                             step_length = len(fh_list_gw)
                              )
-#cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val) - fh_list[-1])
-
+#cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val_gw) - fh_list[-1])
 
 ## LSTM ONLY
-gscv_lstm = set_lstm_test(cv)
+gscv_lstm_gw = set_lstm_test(cv_gw)
 print("Fitting LSTM model...")
-gscv_lstm.fit(y_train_val, X=X_train_val, fh=fh_list)
-print(f"Best parameters for {letter}: {gscv_lstm.best_params_}")
+gscv_lstm_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
+print(f"Best parameters for groundwater LSTM {letter}: {gscv_lstm_gw.best_params_}")
 
+gw_lstm_forecast_model = gscv_lstm_gw.best_forecaster_
+y_lstm_pred_gw = gw_lstm_forecast_model.predict()
 
-lstm_forecast_model = gscv_lstm.best_forecaster_
-y_lstm_pred = lstm_forecast_model.predict()
-
-
-lstm_scores = calc_all_metrics(y_test, y_lstm_pred)
-print("LSTM Scores:")
-print(lstm_scores)
-
-
+lstm_scores_gw = calc_all_metrics(y_test_gw, y_lstm_pred_gw)
+print("LSTM Scores including groundwater:")
+print(lstm_scores_gw)
 
 # In[ ]: ARIMAX ONLY
-avg_X_all = avg_by_date(X_train_val)
-future_X_values = find_future_X_values(y_test, avg_X_all)
+avg_X_all_gw = avg_by_date(X_train_val_gw)
+future_X_values = find_future_X_values(y_test_gw, avg_X_all_gw)
 
 
-gscv_arima = set_arima_gscv()
-print("Fitting ARIMA model...")
-gscv_arima.fit(y_train_val, X=X_train_val, fh=fh_list)
-y_arima_pred = gscv_arima.predict(X=future_X_values)
+gscv_arima_gw = set_arima_gscv()
+print("Fitting groundwater ARIMA model...")
+gscv_arima_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
+y_arima_pred_gw = gscv_arima_gw.predict(X=future_X_values)
+
+arima_scores_gw = calc_all_metrics(y_test_gw, y_arima_pred_gw)
+print("Groundwater ARIMA Scores:")
+print(arima_scores_gw)
+print("\n Groundwater ARIMA Model Summary:")
+print(gscv_arima_gw.summary())
 
 
-arima_scores = calc_all_metrics(y_test, y_arima_pred)
-print("ARIMA Scores:")
-print(arima_scores)
 
 
-print(gscv_arima.summary())
+### GROUNDWATER ABSENT MODELS \/
+y_train_val_no, y_test_no, X_train_val_no, X_test_no = data_split(unsplit_df, forecast_horizon=30)
+fh_list_no = forecast_list(y_test_no)
 
-save_data(letter, pre_model_df=combined_df, y_true=y_test, 
-          y_lstm_pred=y_lstm_pred, y_arima_pred=y_arima_pred, X_true=X_test)
+cv_no = ExpandingWindowSplitter(initial_window =
+                             int(len(y_train_val_no)-360),
+                             fh=fh_list_no,
+                             step_length = len(fh_list_no)
+                             )
+#cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val_gw) - fh_list[-1])
+
+## LSTM ONLY
+gscv_lstm_no = set_lstm_test(cv_no)
+print("Fitting LSTM model...")
+gscv_lstm_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
+print(f"Best parameters for non-groundwater LSTM {letter}: {gscv_lstm_no.best_params_}")
+
+gw_lstm_forecast_model_no = gscv_lstm_no.best_forecaster_
+y_lstm_pred_no = gw_lstm_forecast_model_no.predict()
+
+lstm_scores_no = calc_all_metrics(y_test_no, y_lstm_pred_no)
+print("LSTM Scores excluding groundwater:")
+print(lstm_scores_no)
+
+# In[ ]: ARIMAX ONLY
+avg_X_all_no = avg_by_date(X_train_val_no)
+future_X_values = find_future_X_values(y_test_no, avg_X_all_no)
+
+
+gscv_arima_no = set_arima_gscv()
+print("Fitting non-groundwater ARIMA model...")
+gscv_arima_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
+y_arima_pred_no = gscv_arima_no.predict(X=future_X_values)
+
+arima_scores_no = calc_all_metrics(y_test_no, y_arima_pred_no)
+print("Non-Groundwater ARIMA Scores:")
+print(arima_scores_no)
+print("\nARIMA Model Summary:")
+print(gscv_arima_no.summary())
+
+
+
+
+moving_average_plot(combined_df, window_size=30)
+forecast_vs_actual_plot(y_test_gw, y_lstm_pred_gw, y_arima_pred_gw, gw_included=True)
+forecast_vs_actual_plot(y_test_no, y_lstm_pred_no, y_arima_pred_no, gw_included=False)
+compare_forecasts_plots(y_test_gw, y_lstm_pred_gw, y_lstm_pred_no, model_type="LSTM")
+compare_forecasts_plots(y_test_gw, y_arima_pred_gw, y_arima_pred_no, model_type="ARIMA")
+
+save_data(letter, pre_model_df=combined_df, y_true=y_test_gw, 
+          y_lstm_pred_gw=y_lstm_pred_gw, y_arima_pred_gw=y_arima_pred_gw, 
+          y_lstm_pred_no=y_lstm_pred_no, y_arima_pred_no=y_arima_pred_no, X_true=X_test_gw)
 # In[ ]:
 
 

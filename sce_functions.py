@@ -44,11 +44,11 @@ USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 loc_stat_ids = {
     #gw site w/ readings at 12:00, ft -- 31200
     # Depth to water level, feet below land surface -- 72019
-    'USGS-400209077183301' : 72019, 
-    'USGS-402735077100901' : 72019, 
-    'USGS-412427076594401' : 72019, 
-    'USGS-420710077052101' : 72019, 
-    'USGS-420815076155501' : 72019, 
+    'USGS-400209077183301' : "00003", 
+    'USGS-402735077100901' : "00003", 
+    'USGS-412427076594401' : "00003", 
+    'USGS-420710077052101' : "00003", 
+    'USGS-420815076155501' : "00003", 
 }
 
 def get_stream_data(site_id):
@@ -72,7 +72,7 @@ def get_gw_data(site_id):
 
     df, metadata = waterdata.get_daily(
         monitoring_location_id = site_id,
-        parameter_code = 72019,
+        parameter_code = '72019', # depth to water level, feet below land surface
         time = f"{START_DATE}/{END_DATE}" # having a start date and end date is essential
     )
     #print(df.head())
@@ -82,12 +82,7 @@ def get_gw_data(site_id):
     return cleaned_df
 
 
-
-
 # In[ ]:
-
-
-
 
 def merge_dfs(gw_df, sw_df):
     gw = gw_df.rename(columns={'value':'gw_level'})
@@ -105,48 +100,72 @@ def process_hydro_data(df, show_plots = False):
     dis = df['discharge']
     print(f"Skew value of groundwater: {gw.skew()},\n and discharge: {dis.skew()}")
 
+    gw_log_transform = False
+    dis_log_transform = False
 
     # Reflect gw to be right-skewed
-    if gw.skew() < 0:
+    if gw.skew() < -.75: # if the skew is less than -0.75, we will reflect it to be right-skewed, 
         reflected_gw = gw.max() - df['gw_level'] + 1
-        log_gw = np.log(reflected_gw)
+        gw_col = np.log(reflected_gw)
+        gw_log_transform = True
+    elif gw.skew() > .75: # if the skew is greater than 0.75, we will log transform it to be less skewed, but it is already right-skewed so we won't reflect it
+        gw_col = np.log(gw)
+        gw_log_transform = True
     else:
-        log_gw = np.log(gw)
+        print("Groundwater skew is too low for transformation.")
+        gw_col = gw
 
-    log_dis = np.log(dis)
-    print(f"Skew value of logarithmic groundwater: {log_gw.skew()},\n and logarithmic discharge: {log_dis.skew()}")
+    if dis.skew() < -.75: # if the skew is less than -0.75, we will reflect it to be right-skewed
+        reflected_dis = dis.max() - df['discharge'] + 1
+        dis_col = np.log(reflected_dis)
+        dis_log_transform = True
+    elif dis.skew() > .75: # if the skew is greater than 0.75, we will log transform it to be less skewed
+        dis_col = np.log(dis)
+        dis_log_transform = True
+    else:
+        print("Discharge skew is too low for transformation.")
+        dis_col = dis
+    
+    if gw_log_transform == True:
+        print(f"Skew value of logarithmic groundwater: {gw_col.skew()}")
+              
+    if dis_log_transform == True:
+        print(f"Skew value of logarithmic discharge: {dis_col.skew()}")
 
 
     if show_plots == True:
-        print('We will display some plots')
+        
         sns.histplot(gw, kde=True, bins=50)
         plt.title("Groundwater distribution")
         plt.show()
 
+        if gw_log_transform == True:
+            sns.histplot(reflected_gw, kde=True, bins=50)
+            plt.title("Reflected groundwater distribution")
+            plt.show()
 
-        sns.histplot(reflected_gw, kde=True, bins=50)
-        plt.title("Reflected groundwater distribution")
-        plt.show()
+            sns.histplot(gw_col, kde=True, bins=50)
+            plt.title("Logarithmic groundwater distribution")
+            plt.show()
 
+        if dis_log_transform == True:
+            sns.histplot(dis, kde=True, bins=50)
+            plt.title("Discharge distribution")
+            plt.show()
 
-        sns.histplot(log_gw, kde=True, bins=50)
-        plt.title("Logarithmic groundwater distribution")
-        plt.show()
-
-
-        sns.histplot(dis, kde=True, bins=50)
-        plt.title("Discharge distribution")
-        plt.show()
-
-
-        sns.histplot(log_dis, kde=True, bins=50)
-        plt.title("Logarithmic discharge distribution")
-        plt.show()
+            sns.histplot(dis_col, kde=True, bins=50)
+            plt.title("Logarithmic discharge distribution")
+            plt.show()
 
 
-    output_df = pd.concat([df['time'], log_gw, log_dis], axis=1)
-    output_df = output_df.rename(columns = {'gw_level':'log_gw', 'discharge':'log_discharge'})
-    output_df.sort_values(by='time')
+    output_df = pd.concat([df['time'], gw_col, dis_col], axis=1)
+    # if gw_log_transform == True:
+    #     output_df = output_df.rename(columns = {'gw_level':'log_gw'})
+    # if dis_log_transform == True:
+    #     output_df = output_df.rename(columns = {'discharge':'log_discharge'})
+    output_df['time'] = pd.to_datetime(output_df['time'])
+    output_df['time'] = output_df['time'].dt.date
+    output_df.sort_values(by='time', inplace=True)
     return output_df
 
 
@@ -179,7 +198,7 @@ def process_weather_from_csv(csv_path):
 # Merges and sorts dfs to enter model training
 def merge_hydro_weather(hdf, wdf):
     unscaled_df = pd.merge(hdf, wdf, left_on='time', right_on='Date', how='left')
-    unscaled_df = unscaled_df[['time', 'log_gw', 'log_discharge', 'TMAX (Degrees Fahrenheit)',
+    unscaled_df = unscaled_df[['time', 'gw_level', 'discharge', 'TMAX (Degrees Fahrenheit)',
                                 'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)']]
     unscaled_df = unscaled_df.sort_values(by='time')
     unscaled_df.rename(columns={'time' : 'index'}, inplace=True)
@@ -200,7 +219,7 @@ def include_gw(df, yes_no):
     if yes_no == True:
         return df
     elif yes_no == False:
-        return df.loc[:, df.columns != 'log_gw']
+        return df.loc[:, df.columns != 'gw_level']
 
 
 
@@ -208,8 +227,8 @@ def include_gw(df, yes_no):
 # Will still split X_train and y_train for validation
 def data_split(unsplit_df, forecast_horizon):
     y_train_val, y_test, X_train_val, X_test = temporal_train_test_split(
-                                y=unsplit_df['log_discharge'],
-                                X=unsplit_df.loc[:, unsplit_df.columns != 'log_discharge'],
+                                y=unsplit_df['discharge'],
+                                X=unsplit_df.loc[:, unsplit_df.columns != 'discharge'],
                                 test_size = forecast_horizon) #number of rows to include in test set
     return y_train_val, y_test, X_train_val, X_test
 
@@ -279,17 +298,18 @@ def set_lstm_test(cv):
         verbose_predict = True,
         #early_stop_patience_steps = 1,
         #val_check_steps = 1,
-        input_size = -1, # uses all historical data
+        input_size = 365, # uses past year of data
+        batch_size=64,
         #encoder_n_layers = 2,
         #encoder_hidden_size = 200,
+        learning_rate=0.001,
         max_steps = 100
     )
 
 
     param_grid = {
-        'encoder_n_layers' : [2,3],
-        'encoder_hidden_size' : [200, 300, 400],
-        'batch_size' : [64, 128],
+        'encoder_n_layers' : [1],
+        'encoder_hidden_size' : [150, 200],
     }
 
 
@@ -352,31 +372,54 @@ def set_arima_gscv(cv):
 
 # Moving average plot
 def moving_average_plot(df, window_size):
-    df['moving_average'] = df['log_discharge'].rolling(window=window_size).mean()
-    sns.lineplot(x=df.index, y=df['log_discharge'], label='Log Discharge')
+    os.makedirs('plots', exist_ok=True)
+    df['moving_average'] = df['discharge'].rolling(window=window_size).mean()
+    sns.lineplot(x=df.index, y=df['discharge'], label='Discharge')
     sns.lineplot(x=df.index, y=df['moving_average'], label=f'Moving Average (window={window_size})')
-    plt.title('Log Discharge and Moving Average')
+    plt.title('Discharge and Moving Average')
     plt.xlabel('Date')
-    plt.ylabel('Log Discharge')
+    plt.ylabel('Discharge')
     plt.legend()
+    plt.savefig(f'plots/moving_average_window_{window_size}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 # Forecast vs actual plot
-def forecast_vs_actual_plot(y_true, y_lstm_pred, y_arima_pred):
+def forecast_vs_actual_plot(y_true, y_lstm_pred, y_arima_pred, gw_included=False):
+    if gw_included:
+        title_suffix = "with Groundwater"
+    else:
+        title_suffix = "without Groundwater"
+    
+    os.makedirs('plots', exist_ok=True)
     plt.figure(figsize=(10, 6))
-    sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Log Discharge')
-    sns.lineplot(x=y_lstm_pred.index, y=y_lstm_pred.values, label='LSTM Predicted Log Discharge')
-    sns.lineplot(x=y_arima_pred.index, y=y_arima_pred.values, label='ARIMAX Predicted Log Discharge')
-    plt.title('Forecast vs Actual Log Discharge')
+    sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
+    sns.lineplot(x=y_lstm_pred.index, y=y_lstm_pred.values, label='LSTM Predicted Discharge')
+    sns.lineplot(x=y_arima_pred.index, y=y_arima_pred.values, label='ARIMAX Predicted Discharge')
+    plt.title(f'Forecast {title_suffix} vs Actual Discharge ')
     plt.xlabel('Date')
-    plt.ylabel('Log Discharge')
+    plt.ylabel('Discharge')
     plt.legend()
+    plt.savefig(f'plots/forecast_vs_actual_{title_suffix.lower().replace(" ", "_")}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
-def save_data(letter, pre_model_df, y_true, y_lstm_pred, y_arima_pred, X_true):
+def compare_forecasts_plots(y_true, gw_included, gw_absent, model_type):
+    os.makedirs('plots', exist_ok=True)
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
+    sns.lineplot(x=gw_included.index, y=gw_included.values, label=f'{model_type} with Groundwater')
+    sns.lineplot(x=gw_absent.index, y=gw_absent.values, label=f'{model_type} without Groundwater')
+    plt.title(f'Comparison of {model_type} Forecasts with and without Groundwater')
+    plt.xlabel('Date')
+    plt.ylabel('Discharge')
+    plt.legend()
+    plt.savefig(f'plots/compare_forecasts_{model_type.lower().replace(" ", "_")}.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+def save_data(letter, pre_model_df, y_true, y_lstm_pred_gw, y_arima_pred_gw, y_lstm_pred_no, y_arima_pred_no, X_true):
     os.makedirs(letter, exist_ok=True)
     pre_model_df.to_csv(f"{letter}/{letter}_pre_model_data.csv")
-    forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred': y_lstm_pred, 'y_arima_pred': y_arima_pred})
+    forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred_gw': y_lstm_pred_gw, 'y_arima_pred_gw': y_arima_pred_gw, 
+                                'y_lstm_pred_no': y_lstm_pred_no, 'y_arima_pred_no': y_arima_pred_no})
     forecast_df = pd.concat([forecast_df, X_true], ignore_index=True, axis=1)
     forecast_df.to_csv(f"{letter}/{letter}_forecast_data.csv")
 
