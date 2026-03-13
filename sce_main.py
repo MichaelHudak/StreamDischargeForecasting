@@ -135,17 +135,17 @@ avg_X_all_gw = avg_by_date(X_train_val_gw)
 future_X_values = find_future_X_values(y_test_gw, avg_X_all_gw)
 
 
-gscv_arima_gw = set_arima_gscv(cv_gw)
+arima_gw = set_arima_gscv(cv_gw)
 print("\nFitting groundwater ARIMA model...")
 X_train_val_gw = X_train_val_gw.select_dtypes(include=['number'])
-gscv_arima_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
-y_arima_pred_gw = gscv_arima_gw.predict(X=future_X_values)
+arima_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
+y_arima_pred_gw = arima_gw.predict(X=future_X_values)
 
 arima_scores_gw = calc_all_metrics(y_test_gw, y_arima_pred_gw)
 print("\n\nGroundwater ARIMA Scores:")
 print(arima_scores_gw)
 print("\n\nGroundwater ARIMA Model Summary:")
-print(gscv_arima_gw.summary())
+print(arima_gw.summary())
 
 
 

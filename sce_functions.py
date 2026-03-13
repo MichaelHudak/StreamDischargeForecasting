@@ -307,12 +307,10 @@ def set_lstm_test(cv):
         max_steps = 100
     )
 
-
     param_grid = {
         'encoder_n_layers' : [1],
         'encoder_hidden_size' : [150],
     }
-
 
     gscv = ForecastingGridSearchCV(
         forecaster=lstm,
@@ -322,8 +320,6 @@ def set_lstm_test(cv):
         scoring=MeanSquaredError(square_root=True), # RMSE
         error_score='raise',
     )
-
-
     return gscv
 
 
@@ -341,10 +337,8 @@ def find_future_X_values(y_test, avg_X_all):
     # Build list of (month, day) tuples for forecast horizon
     md_tuples = [(d.month, d.day) for d in y_test.index]
 
-
     # Select matching rows in one shot
     avg_X_forecast = avg_X_all.loc[md_tuples].copy()
-
 
     # Assign forecast dates as index
     avg_X_forecast.index = y_test.index
@@ -352,10 +346,20 @@ def find_future_X_values(y_test, avg_X_all):
 
 
 def set_arima_gscv(cv):
-    arima = AutoARIMA(sp=365)
+    arima = AutoARIMA(
+        sp=365,
+        max_P=0,   # no seasonal AR terms
+        max_Q=0,   # no seasonal MA terms
+        max_D=1,   # allow seasonal differencing only
+        max_p=2,
+        max_q=2,
+        max_d=1,
+        stepwise=True,
+        information_criterion='aicc',
+    )
 
-    # AutoARIMA(
-    #     sp=365,
+    return arima
+    # arima = AutoARIMA(
     #     max_p=3,
     #     max_q=3,
     #     max_P=1,
@@ -363,21 +367,20 @@ def set_arima_gscv(cv):
     #     stepwise=True
     # )
 
-    param_grid={
-        "sp": [365], # sp ==> periods are expected to repeat every 365 measurements
-        "seasonal": [True, False]
-    },
+    # param_grid={
+    #     "sp": [365], # sp ==> periods are expected to repeat every 365 measurements
+    #     "seasonal": [True, False]
+    # }
 
-
-    gscv = ForecastingGridSearchCV(
-        forecaster=arima,
-        param_grid=param_grid,
-        cv=cv, # This ensures the expanding splitter takes place
-        verbose=2,
-        scoring=MeanSquaredError(square_root=True), # RMSE
-        error_score='raise',
-    )
-    return gscv
+    # gscv = ForecastingGridSearchCV(
+    #     forecaster=arima,
+    #     param_grid=param_grid,
+    #     cv=cv, # This ensures the expanding splitter takes place
+    #     verbose=2,
+    #     scoring=MeanSquaredError(square_root=True), # RMSE
+    #     error_score='raise',
+    # )
+    return arima
 
 # Moving average plot
 def moving_average_plot(df, window_size):
