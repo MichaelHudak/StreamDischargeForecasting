@@ -348,12 +348,12 @@ def find_future_X_values(y_test, avg_X_all):
 def set_arima_gscv(cv):
     arima = AutoARIMA(
         sp=365,
-        max_P=0,   # no seasonal AR terms
-        max_Q=0,   # no seasonal MA terms
-        max_D=1,   # allow seasonal differencing only
-        max_p=2,
-        max_q=2,
-        max_d=1,
+        max_P=0,    # no seasonal AR terms
+        max_Q=0,    # no seasonal MA terms
+        max_D=1,    # allow seasonal differencing only
+        max_p=2,    # looks back at most 2 most recent values
+        max_q=2,    # looks back at most 2 most recent errors, 
+        max_d=1,    # allows differencing to make the series stationary
         stepwise=True,
         information_criterion='aicc',
     )
