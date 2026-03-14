@@ -119,7 +119,7 @@ avg_X_all_gw = avg_by_date(X_train_val_gw)
 future_X_values_gw = find_future_X_values(y_test_gw, avg_X_all_gw)
 
 ## LSTM ONLY
-gscv_lstm_gw = set_lstm_test(cv_gw)
+gscv_lstm_gw = set_lstm_test(cv_gw, gw_included=True)
 print("Fitting LSTM model...")
 gscv_lstm_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
 print(f"\n\n\nBest parameters for groundwater LSTM {letter}: {gscv_lstm_gw.best_params_}")
@@ -169,7 +169,7 @@ future_X_values_no = find_future_X_values(y_test_no, avg_X_all_no)
 
 
 ## LSTM ONLY
-gscv_lstm_no = set_lstm_test(cv_no)
+gscv_lstm_no = set_lstm_test(cv_no, gw_included=False)
 print("Fitting LSTM model...")
 gscv_lstm_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
 print(f"Best parameters for non-groundwater LSTM {letter}: {gscv_lstm_no.best_params_}")
@@ -215,9 +215,9 @@ save_run_results(letter, results_arima_gw, results_arima_no,
                 lstm_scores_gw, lstm_scores_no,
                 arima_scores_gw, arima_scores_no)
 
-# save_data(letter, pre_model_df=combined_df, y_true=y_test_gw, 
-#           y_lstm_pred_gw=y_lstm_pred_gw, y_arima_pred_gw=y_arima_pred_gw, 
-#           y_lstm_pred_no=y_lstm_pred_no, y_arima_pred_no=y_arima_pred_no, X_true=X_test_gw)
+save_data(letter, pre_model_df=combined_df, y_true=y_test_gw, 
+          y_lstm_pred_gw=y_lstm_pred_gw, y_arima_pred_gw=y_arima_pred_gw, 
+          y_lstm_pred_no=y_lstm_pred_no, y_arima_pred_no=y_arima_pred_no, X_true=X_test_gw)
 
 
 

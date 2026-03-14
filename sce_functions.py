@@ -135,7 +135,7 @@ def process_hydro_data(df, show_plots = False):
         print(f"Skew value of logarithmic discharge: {dis_col.skew()}")
 
 
-    if show_plots == True:
+    if show_plots == True: # There may be a bug here based on the reflecting and log transforming
         
         sns.histplot(gw, kde=True, bins=50)
         plt.title("Groundwater distribution")
@@ -235,16 +235,8 @@ def data_split(unsplit_df, forecast_horizon):
     return y_train_val, y_test, X_train_val, X_test
 
 
-# In[ ]:
-
-
-def forecast_list(yt):
-    forecast_length = 0
-    fh_list = []
-    for i in yt:
-        forecast_length += 1
-        fh_list.append(forecast_length)
-    return fh_list
+def forecast_list(yt): # Returns a list starting from 1 and counting up by 1
+    return list(range(1, len(yt) + 1))
 
 
 # https://stackoverflow.com/questions/63903016/calculate-nash-sutcliff-efficiency
@@ -293,10 +285,17 @@ def calc_all_metrics(y_true, y_pred):
     return dict_result
 
 
-def set_lstm_test(cv):
+def set_lstm_test(cv, gw_included):
+    if gw_included == True:
+        futr_exog_list= ['gw_level', 'TMAX (Degrees Fahrenheit)',
+                                'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)']
+    else:
+        futr_exog_list= ['TMAX (Degrees Fahrenheit)',
+                                'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)'],
+    
     lstm = NeuralForecastLSTM(  
         local_scaler_type = 'minmax',
-        futr_exog_list= None, # we would not know future values, so the model shouldn't
+        futr_exog_list = futr_exog_list,
         verbose_fit = True,
         verbose_predict = True,
         #early_stop_patience_steps = 1,
@@ -327,6 +326,8 @@ def set_lstm_test(cv):
 
 # Returns a dataframe of daily averages for each input variable
 def avg_by_date(training_df):
+    training_df = training_df.copy()
+    training_df = training_df.drop(columns=['discharge'], errors='ignore') # removes discharge column, doesn't do anything if discharge is not present
     training_df['dates'] = pd.to_datetime(training_df.index)
     daily_avg = training_df.groupby(
         [training_df['dates'].dt.month, training_df['dates'].dt.day]).mean()
@@ -422,7 +423,7 @@ def save_data(letter, pre_model_df, y_true, y_lstm_pred_gw, y_arima_pred_gw, y_l
     pre_model_df.to_csv(f"{letter}/{letter}_pre_model_data.csv")
     forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred_gw': y_lstm_pred_gw, 'y_arima_pred_gw': y_arima_pred_gw, 
                                 'y_lstm_pred_no': y_lstm_pred_no, 'y_arima_pred_no': y_arima_pred_no})
-    forecast_df = pd.concat([forecast_df, X_true], ignore_index=True, axis=1)
+    forecast_df = pd.concat([forecast_df, X_true], axis=1)
     forecast_df.to_csv(f"{letter}/{letter}_forecast_data.csv")
 
 
