@@ -39,7 +39,7 @@ from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.split import temporal_train_test_split
 
 # ## Define constants & codes
-START_DATE= "2016-01-01"
+START_DATE= "2010-01-01"
 END_DATE = "2025-01-01"
 USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 
@@ -303,9 +303,7 @@ def set_lstm_test(cv, gw_included):
         #encoder_n_layers = 2,
         #encoder_hidden_size = 200,
         learning_rate=0.001,
-        max_steps = 300, # Relatively low to keep runtime manageable
-        early_stop_patience_steps = 10,
-        val_check_steps = 10
+        max_steps = 200, # Relatively low to keep runtime manageable
     )
 
     param_grid = {
