@@ -56,7 +56,7 @@ from sktime.split import temporal_train_test_split
 # ## Define constants & codes
 START_DATE= "2016-01-01"
 END_DATE = "2025-01-01"
-USGS_KEY = ""
+USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 
 # https://api.waterdata.usgs.gov/ogcapi/v0/openapi?f=html#/daily/SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8
 
@@ -115,6 +115,8 @@ cv_gw = ExpandingWindowSplitter(initial_window =
                              step_length = len(fh_list_gw)
                              )
 #cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val_gw) - fh_list[-1])
+avg_X_all_gw = avg_by_date(X_train_val_gw)
+future_X_values_gw = find_future_X_values(y_test_gw, avg_X_all_gw)
 
 ## LSTM ONLY
 gscv_lstm_gw = set_lstm_test(cv_gw)
@@ -123,16 +125,13 @@ gscv_lstm_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
 print(f"\n\n\nBest parameters for groundwater LSTM {letter}: {gscv_lstm_gw.best_params_}")
 
 gw_lstm_forecast_model = gscv_lstm_gw.best_forecaster_
-y_lstm_pred_gw = gw_lstm_forecast_model.predict()
+y_lstm_pred_gw = gw_lstm_forecast_model.predict(X=future_X_values_gw)
 
 lstm_scores_gw = calc_all_metrics(y_test_gw, y_lstm_pred_gw)
 print("\n\nLSTM Scores including groundwater:")
 print(lstm_scores_gw)
 
 ## ARIMAX ONLY
-avg_X_all_gw = avg_by_date(X_train_val_gw)
-future_X_values_gw = find_future_X_values(y_test_gw, avg_X_all_gw)
-
 
 arima_gw = set_arima()
 print("\nValidating groundwater ARIMA model...")
@@ -155,7 +154,6 @@ print(arima_gw.summary())
 
 
 
-
 ### GROUNDWATER ABSENT MODELS \/
 y_train_val_no, y_test_no, X_train_val_no, X_test_no = data_split(unsplit_df_no_gw, forecast_horizon=30)
 fh_list_no = forecast_list(y_test_no)
@@ -166,6 +164,9 @@ cv_no = ExpandingWindowSplitter(initial_window =
                              step_length = len(fh_list_no)
                              )
 #cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val_gw) - fh_list[-1])
+avg_X_all_no = avg_by_date(X_train_val_no)
+future_X_values_no = find_future_X_values(y_test_no, avg_X_all_no)
+
 
 ## LSTM ONLY
 gscv_lstm_no = set_lstm_test(cv_no)
@@ -174,16 +175,13 @@ gscv_lstm_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
 print(f"Best parameters for non-groundwater LSTM {letter}: {gscv_lstm_no.best_params_}")
 
 gw_lstm_forecast_model_no = gscv_lstm_no.best_forecaster_
-y_lstm_pred_no = gw_lstm_forecast_model_no.predict()
+y_lstm_pred_no = gw_lstm_forecast_model_no.predict(X=future_X_values_no)
 
 lstm_scores_no = calc_all_metrics(y_test_no, y_lstm_pred_no)
 print("LSTM Scores excluding groundwater:")
 print(lstm_scores_no)
 
 # In[ ]: ARIMAX ONLY
-avg_X_all_no = avg_by_date(X_train_val_no)
-future_X_values_no = find_future_X_values(y_test_no, avg_X_all_no)
-
 arima_no = set_arima()
 print("\nValidating non-groundwater ARIMA model...")
 X_train_val_no_num = X_train_val_no.select_dtypes(include=['number'])
