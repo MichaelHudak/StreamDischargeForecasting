@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import json
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -37,7 +39,7 @@ from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.split import temporal_train_test_split
 
 # ## Define constants & codes
-START_DATE= "2016-01-01"
+START_DATE= "2010-01-01"
 END_DATE = "2025-01-01"
 USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 
@@ -133,7 +135,7 @@ def process_hydro_data(df, show_plots = False):
         print(f"Skew value of logarithmic discharge: {dis_col.skew()}")
 
 
-    if show_plots == True:
+    if show_plots == True: # There may be a bug here based on the reflecting and log transforming
         
         sns.histplot(gw, kde=True, bins=50)
         plt.title("Groundwater distribution")
@@ -233,16 +235,8 @@ def data_split(unsplit_df, forecast_horizon):
     return y_train_val, y_test, X_train_val, X_test
 
 
-# In[ ]:
-
-
-def forecast_list(yt):
-    forecast_length = 0
-    fh_list = []
-    for i in yt:
-        forecast_length += 1
-        fh_list.append(forecast_length)
-    return fh_list
+def forecast_list(yt): # Returns a list starting from 1 and counting up by 1
+    return list(range(1, len(yt) + 1))
 
 
 # https://stackoverflow.com/questions/63903016/calculate-nash-sutcliff-efficiency
@@ -291,25 +285,30 @@ def calc_all_metrics(y_true, y_pred):
     return dict_result
 
 
-def set_lstm_test(cv):
+def set_lstm_test(cv, gw_included):
+    if gw_included == True:
+        futr_exog_list= ['gw_level', 'TMAX (Degrees Fahrenheit)',
+                                'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)']
+    else:
+        futr_exog_list= ['TMAX (Degrees Fahrenheit)',
+                                'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)']
+    
     lstm = NeuralForecastLSTM(  
         local_scaler_type = 'minmax',
-        futr_exog_list= None, # we would not know future values, so the model shouldn't
+        futr_exog_list = futr_exog_list,
         verbose_fit = True,
         verbose_predict = True,
-        #early_stop_patience_steps = 1,
-        #val_check_steps = 1,
         input_size = 365, # uses past year of data
-        batch_size=64,
+        batch_size=32,
         #encoder_n_layers = 2,
         #encoder_hidden_size = 200,
         learning_rate=0.001,
-        max_steps = 100
+        max_steps = 200, # Relatively low to keep runtime manageable
     )
 
     param_grid = {
-        'encoder_n_layers' : [1],
-        'encoder_hidden_size' : [150],
+        'encoder_n_layers' : [1, 2],
+        'encoder_hidden_size' : [64, 128],
     }
 
     gscv = ForecastingGridSearchCV(
@@ -325,9 +324,11 @@ def set_lstm_test(cv):
 
 # Returns a dataframe of daily averages for each input variable
 def avg_by_date(training_df):
-    training_df['dates'] = pd.to_datetime(training_df.index)
-    daily_avg = training_df.groupby(
-        [training_df['dates'].dt.month, training_df['dates'].dt.day]).mean()
+    training_df_copy = training_df.copy()
+    training_df_copy = training_df_copy.drop(columns=['discharge'], errors='ignore') # removes discharge column, doesn't do anything if discharge is not present
+    training_df_copy['dates'] = pd.to_datetime(training_df_copy.index)
+    daily_avg = training_df_copy.groupby(
+        [training_df_copy['dates'].dt.month, training_df_copy['dates'].dt.day]).mean()
     daily_avg.index.names = ['Month', 'Day']
     daily_avg = daily_avg.drop('dates', axis=1)
     return daily_avg
@@ -345,42 +346,32 @@ def find_future_X_values(y_test, avg_X_all):
     return avg_X_forecast
 
 
-def set_arima_gscv(cv):
+def set_arima():
     arima = AutoARIMA(
         sp=365,
-        max_P=0,   # no seasonal AR terms
-        max_Q=0,   # no seasonal MA terms
-        max_D=1,   # allow seasonal differencing only
-        max_p=2,
-        max_q=2,
-        max_d=1,
+        start_P=0,  # no seasonal AR terms
+        start_Q=0,    # no seasonal MA terms
+        max_P=0,    # no seasonal AR terms
+        max_Q=0,    # no seasonal MA terms
+        max_D=1,    # allow seasonal differencing only
+        max_p=2,    # looks back at most 2 most recent values
+        max_q=2,    # looks back at most 2 most recent errors, 
+        max_d=1,    # allows differencing to make the series stationary
         stepwise=True,
         information_criterion='aicc',
     )
-
     return arima
-    # arima = AutoARIMA(
-    #     max_p=3,
-    #     max_q=3,
-    #     max_P=1,
-    #     max_Q=1,
-    #     stepwise=True
-    # )
 
-    # param_grid={
-    #     "sp": [365], # sp ==> periods are expected to repeat every 365 measurements
-    #     "seasonal": [True, False]
-    # }
-
-    # gscv = ForecastingGridSearchCV(
-    #     forecaster=arima,
-    #     param_grid=param_grid,
-    #     cv=cv, # This ensures the expanding splitter takes place
-    #     verbose=2,
-    #     scoring=MeanSquaredError(square_root=True), # RMSE
-    #     error_score='raise',
-    # )
-    return arima
+def evaluate_arima(arima, y_train_val, cv, X=None):
+    results = evaluate(
+        forecaster=arima,
+        y=y_train_val,
+        cv=cv,
+        X=X,
+        scoring=MeanSquaredError(square_root=True),
+        return_data=True,
+    )
+    return results
 
 # Moving average plot
 def moving_average_plot(df, window_size):
@@ -432,15 +423,34 @@ def save_data(letter, pre_model_df, y_true, y_lstm_pred_gw, y_arima_pred_gw, y_l
     pre_model_df.to_csv(f"{letter}/{letter}_pre_model_data.csv")
     forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred_gw': y_lstm_pred_gw, 'y_arima_pred_gw': y_arima_pred_gw, 
                                 'y_lstm_pred_no': y_lstm_pred_no, 'y_arima_pred_no': y_arima_pred_no})
-    forecast_df = pd.concat([forecast_df, X_true], ignore_index=True, axis=1)
+    forecast_df = pd.concat([forecast_df, X_true], axis=1)
     forecast_df.to_csv(f"{letter}/{letter}_forecast_data.csv")
 
-# def time_series_plot():
-#     sns.lineplot(x="time", y="log_discharge",
-#              hue="region", style="event",
-#              data=fmri)
+
+def save_run_results(letter, results_arima_gw, results_arima_no, 
+                     arima_gw, arima_no, 
+                     lstm_scores_gw, lstm_scores_no,
+                     arima_scores_gw, arima_scores_no):
     
-# def pred_fit_plot(y_pred, y_true):
-#     sns.lineplot(x="time", y="log_discharge",
-#              hue="region", style="event",
-#              data=fmri)
+    out_dir = Path(f"results/{letter}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Validation CV results
+    results_arima_gw.to_csv(out_dir / "arima_gw_cv_results.csv")
+    results_arima_no.to_csv(out_dir / "arima_no_cv_results.csv")
+
+    # Model summaries
+    with open(out_dir / "arima_gw_summary.txt", "w") as f:
+        f.write(str(arima_gw.summary()))
+    with open(out_dir / "arima_no_summary.txt", "w") as f:
+        f.write(str(arima_no.summary()))
+
+    # All scores in one place
+    scores = {
+        "lstm_gw": lstm_scores_gw,
+        "lstm_no": lstm_scores_no,
+        "arima_gw": arima_scores_gw,
+        "arima_no": arima_scores_no,
+    }
+    with open(out_dir / "all_scores.json", "w") as f:
+        json.dump(scores, f, indent=2)

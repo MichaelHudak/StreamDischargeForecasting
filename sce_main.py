@@ -3,7 +3,11 @@
 
 
 # ## Import Statements
-
+# import torch
+# print("CUDA available:", torch.cuda.is_available())
+# print("CUDA version:", torch.version.cuda)
+# torch.cuda.set_device(1)
+# print("Device being used:", torch.cuda.get_device_name(1))
 
 # In[2]:
 
@@ -51,11 +55,10 @@ from sklearn.model_selection import train_test_split
 from permetrics.regression import RegressionMetric
 
 # LSTM libraries
-from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.split import temporal_train_test_split
 
 # ## Define constants & codes
-START_DATE= "2016-01-01"
+START_DATE= "2010-01-01"
 END_DATE = "2025-01-01"
 USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 
@@ -88,7 +91,7 @@ data_source_dict = {
 
 # In[ ]:
 
-letter = "A"
+letter = "A" # change this to run for different locations
 stream_df = get_stream_data(data_source_dict[letter]["stream"])
 print(stream_df.head())
 
@@ -116,30 +119,35 @@ cv_gw = ExpandingWindowSplitter(initial_window =
                              step_length = len(fh_list_gw)
                              )
 #cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val_gw) - fh_list[-1])
+avg_X_all_gw = avg_by_date(X_train_val_gw)
+future_X_values_gw = find_future_X_values(y_test_gw, avg_X_all_gw)
 
 ## LSTM ONLY
-gscv_lstm_gw = set_lstm_test(cv_gw)
+gscv_lstm_gw = set_lstm_test(cv_gw, gw_included=True)
 print("Fitting LSTM model...")
 gscv_lstm_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
 print(f"\n\n\nBest parameters for groundwater LSTM {letter}: {gscv_lstm_gw.best_params_}")
 
 gw_lstm_forecast_model = gscv_lstm_gw.best_forecaster_
-y_lstm_pred_gw = gw_lstm_forecast_model.predict()
+y_lstm_pred_gw = gw_lstm_forecast_model.predict(X=future_X_values_gw)
 
 lstm_scores_gw = calc_all_metrics(y_test_gw, y_lstm_pred_gw)
 print("\n\nLSTM Scores including groundwater:")
 print(lstm_scores_gw)
 
-# In[ ]: ARIMAX ONLY
-avg_X_all_gw = avg_by_date(X_train_val_gw)
-future_X_values = find_future_X_values(y_test_gw, avg_X_all_gw)
+## ARIMAX ONLY
+arima_gw = set_arima()
+print("\nValidating groundwater ARIMA model...")
+X_train_val_gw_num = X_train_val_gw.select_dtypes(include=['number'])
+results_arima_gw = evaluate_arima(arima_gw, y_train_val_gw, cv_gw, X=X_train_val_gw_num)
 
+print("\nValidation RMSE per split:")
+print(results_arima_gw["test_MeanSquaredError"])
+print(f"\nMean RMSE: {results_arima_gw['test_MeanSquaredError'].mean():.4f}")
 
-arima_gw = set_arima_gscv(cv_gw)
 print("\nFitting groundwater ARIMA model...")
-X_train_val_gw = X_train_val_gw.select_dtypes(include=['number'])
-arima_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
-y_arima_pred_gw = arima_gw.predict(X=future_X_values)
+arima_gw.fit(y_train_val_gw, X=X_train_val_gw_num, fh=fh_list_gw)
+y_arima_pred_gw = arima_gw.predict(X=future_X_values_gw)
 
 arima_scores_gw = calc_all_metrics(y_test_gw, y_arima_pred_gw)
 print("\n\nGroundwater ARIMA Scores:")
@@ -149,9 +157,8 @@ print(arima_gw.summary())
 
 
 
-
 ### GROUNDWATER ABSENT MODELS \/
-y_train_val_no, y_test_no, X_train_val_no, X_test_no = data_split(unsplit_df, forecast_horizon=30)
+y_train_val_no, y_test_no, X_train_val_no, X_test_no = data_split(unsplit_df_no_gw, forecast_horizon=30)
 fh_list_no = forecast_list(y_test_no)
 
 cv_no = ExpandingWindowSplitter(initial_window =
@@ -160,37 +167,45 @@ cv_no = ExpandingWindowSplitter(initial_window =
                              step_length = len(fh_list_no)
                              )
 #cv = SingleWindowSplitter(fh=fh_list, window_length=len(y_train_val_gw) - fh_list[-1])
+avg_X_all_no = avg_by_date(X_train_val_no)
+future_X_values_no = find_future_X_values(y_test_no, avg_X_all_no)
+
+print(X_train_val_no.columns.tolist())
+print(X_train_val_gw.columns.tolist())
 
 ## LSTM ONLY
-gscv_lstm_no = set_lstm_test(cv_no)
+gscv_lstm_no = set_lstm_test(cv_no, gw_included=False)
 print("Fitting LSTM model...")
 gscv_lstm_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
 print(f"Best parameters for non-groundwater LSTM {letter}: {gscv_lstm_no.best_params_}")
 
 gw_lstm_forecast_model_no = gscv_lstm_no.best_forecaster_
-y_lstm_pred_no = gw_lstm_forecast_model_no.predict()
+y_lstm_pred_no = gw_lstm_forecast_model_no.predict(X=future_X_values_no)
 
 lstm_scores_no = calc_all_metrics(y_test_no, y_lstm_pred_no)
 print("LSTM Scores excluding groundwater:")
 print(lstm_scores_no)
 
 # In[ ]: ARIMAX ONLY
-avg_X_all_no = avg_by_date(X_train_val_no)
-future_X_values = find_future_X_values(y_test_no, avg_X_all_no)
+arima_no = set_arima()
+print("\nValidating non-groundwater ARIMA model...")
+X_train_val_no_num = X_train_val_no.select_dtypes(include=['number'])
+results_arima_no = evaluate_arima(arima_no, y_train_val_no, cv_no, X=X_train_val_no_num)
+
+print("\nValidation RMSE per split:")
+print(results_arima_no["test_MeanSquaredError"])
+print(f"\nMean RMSE: {results_arima_no['test_MeanSquaredError'].mean():.4f}")
 
 
-gscv_arima_no = set_arima_gscv(cv_no)
 print("Fitting non-groundwater ARIMA model...")
-X_train_val_no = X_train_val_no.select_dtypes(include=['number'])
-gscv_arima_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
-y_arima_pred_no = gscv_arima_no.predict(X=future_X_values)
+arima_no.fit(y_train_val_no, X=X_train_val_no_num, fh=fh_list_no)
+y_arima_pred_no = arima_no.predict(X=future_X_values_no)
 
 arima_scores_no = calc_all_metrics(y_test_no, y_arima_pred_no)
 print("Non-Groundwater ARIMA Scores:")
 print(arima_scores_no)
 print("\nARIMA Model Summary:")
-print(gscv_arima_no.summary())
-
+print(arima_no.summary())
 
 
 
@@ -200,10 +215,14 @@ forecast_vs_actual_plot(y_test_no, y_lstm_pred_no, y_arima_pred_no, gw_included=
 compare_forecasts_plots(y_test_gw, y_lstm_pred_gw, y_lstm_pred_no, model_type="LSTM")
 compare_forecasts_plots(y_test_gw, y_arima_pred_gw, y_arima_pred_no, model_type="ARIMA")
 
+save_run_results(letter, results_arima_gw, results_arima_no, 
+                arima_gw, arima_no, 
+                lstm_scores_gw, lstm_scores_no,
+                arima_scores_gw, arima_scores_no)
+
 save_data(letter, pre_model_df=combined_df, y_true=y_test_gw, 
           y_lstm_pred_gw=y_lstm_pred_gw, y_arima_pred_gw=y_arima_pred_gw, 
           y_lstm_pred_no=y_lstm_pred_no, y_arima_pred_no=y_arima_pred_no, X_true=X_test_gw)
-# In[ ]:
 
 
 
