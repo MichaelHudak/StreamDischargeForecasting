@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import json
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -345,7 +347,7 @@ def find_future_X_values(y_test, avg_X_all):
     return avg_X_forecast
 
 
-def set_arima_gscv(cv):
+def set_arima():
     arima = AutoARIMA(
         sp=365,
         max_P=0,    # no seasonal AR terms
@@ -357,30 +359,18 @@ def set_arima_gscv(cv):
         stepwise=True,
         information_criterion='aicc',
     )
-
     return arima
-    # arima = AutoARIMA(
-    #     max_p=3,
-    #     max_q=3,
-    #     max_P=1,
-    #     max_Q=1,
-    #     stepwise=True
-    # )
 
-    # param_grid={
-    #     "sp": [365], # sp ==> periods are expected to repeat every 365 measurements
-    #     "seasonal": [True, False]
-    # }
-
-    # gscv = ForecastingGridSearchCV(
-    #     forecaster=arima,
-    #     param_grid=param_grid,
-    #     cv=cv, # This ensures the expanding splitter takes place
-    #     verbose=2,
-    #     scoring=MeanSquaredError(square_root=True), # RMSE
-    #     error_score='raise',
-    # )
-    return arima
+def evaluate_arima(arima, y_train_val, cv, X=None):
+    results = evaluate(
+        forecaster=arima,
+        y=y_train_val,
+        cv=cv,
+        X=X,
+        scoring=MeanSquaredError(square_root=True),
+        return_data=True,
+    )
+    return results
 
 # Moving average plot
 def moving_average_plot(df, window_size):
@@ -435,12 +425,31 @@ def save_data(letter, pre_model_df, y_true, y_lstm_pred_gw, y_arima_pred_gw, y_l
     forecast_df = pd.concat([forecast_df, X_true], ignore_index=True, axis=1)
     forecast_df.to_csv(f"{letter}/{letter}_forecast_data.csv")
 
-# def time_series_plot():
-#     sns.lineplot(x="time", y="log_discharge",
-#              hue="region", style="event",
-#              data=fmri)
+
+def save_run_results(letter, results_arima_gw, results_arima_no, 
+                     arima_gw, arima_no, 
+                     lstm_scores_gw, lstm_scores_no,
+                     arima_scores_gw, arima_scores_no):
     
-# def pred_fit_plot(y_pred, y_true):
-#     sns.lineplot(x="time", y="log_discharge",
-#              hue="region", style="event",
-#              data=fmri)
+    out_dir = Path(f"results/{letter}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Validation CV results
+    results_arima_gw.to_csv(out_dir / "arima_gw_cv_results.csv")
+    results_arima_no.to_csv(out_dir / "arima_no_cv_results.csv")
+
+    # Model summaries
+    with open(out_dir / "arima_gw_summary.txt", "w") as f:
+        f.write(str(arima_gw.summary()))
+    with open(out_dir / "arima_no_summary.txt", "w") as f:
+        f.write(str(arima_no.summary()))
+
+    # All scores in one place
+    scores = {
+        "lstm_gw": lstm_scores_gw,
+        "lstm_no": lstm_scores_no,
+        "arima_gw": arima_scores_gw,
+        "arima_no": arima_scores_no,
+    }
+    with open(out_dir / "all_scores.json", "w") as f:
+        json.dump(scores, f, indent=2)
