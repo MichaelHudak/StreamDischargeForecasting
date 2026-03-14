@@ -3,7 +3,11 @@
 
 
 # ## Import Statements
-
+# import torch
+# print("CUDA available:", torch.cuda.is_available())
+# print("CUDA version:", torch.version.cuda)
+# torch.cuda.set_device(1)
+# print("Device being used:", torch.cuda.get_device_name(1))
 
 # In[2]:
 
@@ -54,7 +58,7 @@ from permetrics.regression import RegressionMetric
 from sktime.split import temporal_train_test_split
 
 # ## Define constants & codes
-START_DATE= "2016-01-01"
+START_DATE= "2010-01-01"
 END_DATE = "2025-01-01"
 USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 
@@ -87,7 +91,7 @@ data_source_dict = {
 
 # In[ ]:
 
-letter = "A"
+letter = "A" # change this to run for different locations
 stream_df = get_stream_data(data_source_dict[letter]["stream"])
 print(stream_df.head())
 
@@ -132,7 +136,6 @@ print("\n\nLSTM Scores including groundwater:")
 print(lstm_scores_gw)
 
 ## ARIMAX ONLY
-
 arima_gw = set_arima()
 print("\nValidating groundwater ARIMA model...")
 X_train_val_gw_num = X_train_val_gw.select_dtypes(include=['number'])
@@ -167,6 +170,8 @@ cv_no = ExpandingWindowSplitter(initial_window =
 avg_X_all_no = avg_by_date(X_train_val_no)
 future_X_values_no = find_future_X_values(y_test_no, avg_X_all_no)
 
+print(X_train_val_no.columns.tolist())
+print(X_train_val_gw.columns.tolist())
 
 ## LSTM ONLY
 gscv_lstm_no = set_lstm_test(cv_no, gw_included=False)

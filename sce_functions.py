@@ -291,26 +291,26 @@ def set_lstm_test(cv, gw_included):
                                 'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)']
     else:
         futr_exog_list= ['TMAX (Degrees Fahrenheit)',
-                                'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)'],
+                                'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)']
     
     lstm = NeuralForecastLSTM(  
         local_scaler_type = 'minmax',
         futr_exog_list = futr_exog_list,
         verbose_fit = True,
         verbose_predict = True,
-        #early_stop_patience_steps = 1,
-        #val_check_steps = 1,
         input_size = 365, # uses past year of data
-        batch_size=64,
+        batch_size=32,
         #encoder_n_layers = 2,
         #encoder_hidden_size = 200,
         learning_rate=0.001,
-        max_steps = 100
+        max_steps = 300, # Relatively low to keep runtime manageable
+        early_stop_patience_steps = 10,
+        val_check_steps = 10
     )
 
     param_grid = {
-        'encoder_n_layers' : [1],
-        'encoder_hidden_size' : [150],
+        'encoder_n_layers' : [1, 2],
+        'encoder_hidden_size' : [64, 128],
     }
 
     gscv = ForecastingGridSearchCV(
@@ -326,11 +326,11 @@ def set_lstm_test(cv, gw_included):
 
 # Returns a dataframe of daily averages for each input variable
 def avg_by_date(training_df):
-    training_df = training_df.copy()
-    training_df = training_df.drop(columns=['discharge'], errors='ignore') # removes discharge column, doesn't do anything if discharge is not present
-    training_df['dates'] = pd.to_datetime(training_df.index)
-    daily_avg = training_df.groupby(
-        [training_df['dates'].dt.month, training_df['dates'].dt.day]).mean()
+    training_df_copy = training_df.copy()
+    training_df_copy = training_df_copy.drop(columns=['discharge'], errors='ignore') # removes discharge column, doesn't do anything if discharge is not present
+    training_df_copy['dates'] = pd.to_datetime(training_df_copy.index)
+    daily_avg = training_df_copy.groupby(
+        [training_df_copy['dates'].dt.month, training_df_copy['dates'].dt.day]).mean()
     daily_avg.index.names = ['Month', 'Day']
     daily_avg = daily_avg.drop('dates', axis=1)
     return daily_avg
@@ -351,6 +351,8 @@ def find_future_X_values(y_test, avg_X_all):
 def set_arima():
     arima = AutoARIMA(
         sp=365,
+        start_P=0,  # no seasonal AR terms
+        start_Q=0,    # no seasonal MA terms
         max_P=0,    # no seasonal AR terms
         max_Q=0,    # no seasonal MA terms
         max_D=1,    # allow seasonal differencing only
