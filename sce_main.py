@@ -209,11 +209,11 @@ print(arima_no.summary())
 
 
 
-moving_average_plot(combined_df, window_size=30)
-forecast_vs_actual_plot(y_test_gw, y_lstm_pred_gw, y_arima_pred_gw, gw_included=True)
-forecast_vs_actual_plot(y_test_no, y_lstm_pred_no, y_arima_pred_no, gw_included=False)
-compare_forecasts_plots(y_test_gw, y_lstm_pred_gw, y_lstm_pred_no, model_type="LSTM")
-compare_forecasts_plots(y_test_gw, y_arima_pred_gw, y_arima_pred_no, model_type="ARIMA")
+moving_average_plot(letter,combined_df, window_size=30)
+forecast_vs_actual_plot(letter, y_test_gw, y_lstm_pred_gw, y_arima_pred_gw, gw_included=True)
+forecast_vs_actual_plot(letter, y_test_no, y_lstm_pred_no, y_arima_pred_no, gw_included=False)
+compare_forecasts_plots(letter,y_test_gw, y_lstm_pred_gw, y_lstm_pred_no, model_type="LSTM")
+compare_forecasts_plots(letter, y_test_gw, y_arima_pred_gw, y_arima_pred_no, model_type="ARIMA")
 
 save_run_results(letter, results_arima_gw, results_arima_no, 
                 arima_gw, arima_no, 

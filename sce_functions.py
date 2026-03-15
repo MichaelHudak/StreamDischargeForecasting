@@ -213,7 +213,6 @@ def merge_hydro_weather(hdf, wdf):
     unscaled_df.interpolate(method='linear', inplace=True)
     unscaled_df = unscaled_df.ffill().bfill()
 
-
     return unscaled_df
 
 
@@ -374,20 +373,20 @@ def evaluate_arima(arima, y_train_val, cv, X=None):
     return results
 
 # Moving average plot
-def moving_average_plot(df, window_size):
+def moving_average_plot(letter, df, window_size):
     os.makedirs('plots', exist_ok=True)
     df['moving_average'] = df['discharge'].rolling(window=window_size).mean()
     sns.lineplot(x=df.index, y=df['discharge'], label='Discharge')
     sns.lineplot(x=df.index, y=df['moving_average'], label=f'Moving Average (window={window_size})')
-    plt.title('Discharge and Moving Average')
+    plt.title(f'Discharge and Moving Average {letter}')
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/moving_average_window_{window_size}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'plots/moving_average_window_{window_size}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 # Forecast vs actual plot
-def forecast_vs_actual_plot(y_true, y_lstm_pred, y_arima_pred, gw_included=False):
+def forecast_vs_actual_plot(letter, y_true, y_lstm_pred, y_arima_pred, gw_included=False):
     if gw_included:
         title_suffix = "with Groundwater"
     else:
@@ -398,24 +397,24 @@ def forecast_vs_actual_plot(y_true, y_lstm_pred, y_arima_pred, gw_included=False
     sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
     sns.lineplot(x=y_lstm_pred.index, y=y_lstm_pred.values, label='LSTM Predicted Discharge')
     sns.lineplot(x=y_arima_pred.index, y=y_arima_pred.values, label='ARIMAX Predicted Discharge')
-    plt.title(f'Forecast {title_suffix} vs Actual Discharge ')
+    plt.title(f'Forecast {title_suffix} vs Actual Discharge {letter}')
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/forecast_vs_actual_{title_suffix.lower().replace(" ", "_")}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'plots/forecast_vs_actual_{title_suffix.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
-def compare_forecasts_plots(y_true, gw_included, gw_absent, model_type):
+def compare_forecasts_plots(letter, y_true, gw_included, gw_absent, model_type):
     os.makedirs('plots', exist_ok=True)
     plt.figure(figsize=(10, 6))
     sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
     sns.lineplot(x=gw_included.index, y=gw_included.values, label=f'{model_type} with Groundwater')
     sns.lineplot(x=gw_absent.index, y=gw_absent.values, label=f'{model_type} without Groundwater')
-    plt.title(f'Comparison of {model_type} Forecasts with and without Groundwater')
+    plt.title(f'Comparison of {model_type} Forecasts with and without Groundwater {letter}')
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/compare_forecasts_{model_type.lower().replace(" ", "_")}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'plots/compare_forecasts_{model_type.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 def save_data(letter, pre_model_df, y_true, y_lstm_pred_gw, y_arima_pred_gw, y_lstm_pred_no, y_arima_pred_no, X_true):
