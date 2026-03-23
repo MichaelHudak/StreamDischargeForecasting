@@ -344,7 +344,7 @@ def set_lstm_test(cv, gw_included):
         param_distributions = param_distributions,
         cv = cv,
         n_iter = 32, # will cause high runtime, but might be worth it
-        n_points = 1, # allows fitting to multiple folds
+        n_points = 4, # allows fitting to multiple folds
         scoring=MeanSquaredError(square_root=True),
         random_state = 142,
         verbose=2,
