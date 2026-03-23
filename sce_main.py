@@ -1,3 +1,5 @@
+## GITHUB MAIN
+
 #!/usr/bin/env python
 # coding: utf-8
 
@@ -40,7 +42,7 @@ from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.utils.plotting import plot_windows, plot_series
 from sktime.forecasting.model_selection import ForecastingGridSearchCV
 from sktime.performance_metrics.forecasting import MeanSquaredError
-
+import time
 from sktime.split import (
     ExpandingWindowSplitter,
     SingleWindowSplitter,
@@ -90,6 +92,7 @@ data_source_dict = {
 }
 
 # In[ ]:
+start_time = time.time()
 
 letter = "C" # change this to run for different locations
 stream_df = get_stream_data(data_source_dict[letter]["stream"])
@@ -123,12 +126,12 @@ avg_X_all_gw = avg_by_date(X_train_val_gw)
 future_X_values_gw = find_future_X_values(y_test_gw, avg_X_all_gw)
 
 ## LSTM ONLY
-gscv_lstm_gw = set_lstm_test(cv_gw, gw_included=True)
+tuner_lstm_gw = set_lstm_test(cv_gw, gw_included=True)
 print("Fitting LSTM model...")
-gscv_lstm_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
-print(f"\n\n\nBest parameters for groundwater LSTM {letter}: {gscv_lstm_gw.best_params_}")
+tuner_lstm_gw.fit(y_train_val_gw, X=X_train_val_gw, fh=fh_list_gw)
+print(f"\n\n\nBest parameters for groundwater LSTM {letter}: {tuner_lstm_gw.best_params_}")
 
-gw_lstm_forecast_model = gscv_lstm_gw.best_forecaster_
+gw_lstm_forecast_model = tuner_lstm_gw.best_forecaster_
 y_lstm_pred_gw = gw_lstm_forecast_model.predict(X=future_X_values_gw)
 
 lstm_scores_gw = calc_all_metrics(y_test_gw, y_lstm_pred_gw)
@@ -174,12 +177,12 @@ print(X_train_val_no.columns.tolist())
 print(X_train_val_gw.columns.tolist())
 
 ## LSTM ONLY
-gscv_lstm_no = set_lstm_test(cv_no, gw_included=False)
+tuner_lstm_no = set_lstm_test(cv_no, gw_included=False)
 print("Fitting LSTM model...")
-gscv_lstm_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
-print(f"Best parameters for non-groundwater LSTM {letter}: {gscv_lstm_no.best_params_}")
+tuner_lstm_no.fit(y_train_val_no, X=X_train_val_no, fh=fh_list_no)
+print(f"Best parameters for non-groundwater LSTM {letter}: {tuner_lstm_no.best_params_}")
 
-gw_lstm_forecast_model_no = gscv_lstm_no.best_forecaster_
+gw_lstm_forecast_model_no = tuner_lstm_no.best_forecaster_
 y_lstm_pred_no = gw_lstm_forecast_model_no.predict(X=future_X_values_no)
 
 lstm_scores_no = calc_all_metrics(y_test_no, y_lstm_pred_no)
@@ -224,33 +227,15 @@ save_data(letter, pre_model_df=combined_df, y_true=y_test_gw,
           y_lstm_pred_gw=y_lstm_pred_gw, y_arima_pred_gw=y_arima_pred_gw, 
           y_lstm_pred_no=y_lstm_pred_no, y_arima_pred_no=y_arima_pred_no, X_true=X_test_gw)
 
+save_lstm_details(letter, tuner_lstm_gw, "gw", f"results/{letter}")
+save_lstm_details(letter, tuner_lstm_no, "no", f"results/{letter}")
+
+save_all_models(letter,
+    gw_lstm_model=gw_lstm_forecast_model,
+    no_lstm_model=gw_lstm_forecast_model_no,
+    gw_arima_model=arima_gw,
+    no_arima_model=arima_no)
+
+print("--- %s seconds ---" % (time.time() - start_time))
 
 
-
-
-
-# In[ ]:
-
-
-
-
-# In[ ]:
-
-
-
-
-# fig_df = pd.merge(y_test, y_arima2_pred, how='inner', left_on='index', right_on=y_arima_pred.index)
-# fig_df = fig_df.rename(columns={"log_discharge_x" : "Real Discharge",
-#                        "log_discharge_y" : "Predicted Discharge"})
-# print(fig_df.head())
-# fig = px.scatter(fig_df, x=fig_df.index, y= ['Real Discharge', 'Predicted Discharge'])
-# fig.show()
-
-
-
-
-# ## Scaling
-# Scaling can be done as part of model training, or I can pre-scale just the training data.
-
-
-# In[ ]:

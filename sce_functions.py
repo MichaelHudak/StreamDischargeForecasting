@@ -1,3 +1,5 @@
+## GITHUB FUNCTIONS
+
 import os
 import pandas as pd
 import numpy as np
@@ -17,7 +19,7 @@ import sktime
 from sktime.forecasting.arima import AutoARIMA
 from sktime.forecasting.neuralforecast import NeuralForecastLSTM
 from sktime.utils.plotting import plot_windows, plot_series
-from sktime.forecasting.model_selection import ForecastingGridSearchCV
+from sktime.forecasting.model_selection import ForecastingGridSearchCV, ForecastingSkoptSearchCV
 from sktime.performance_metrics.forecasting import MeanSquaredError
 
 #from sktime.forecasting.model_selection import ExpandingWindowSplitter, SingleWindowSplitter
@@ -31,6 +33,7 @@ from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split
+from sktime.utils.mlflow_sktime import save_model
 
 from permetrics.regression import RegressionMetric
 
@@ -283,6 +286,16 @@ def calc_all_metrics(y_true, y_pred):
     
     return dict_result
 
+class CastingNeuralForecastLSTM(NeuralForecastLSTM):
+    def fit(self, y, X=None, fh=None):
+        if hasattr(self, 'encoder_hidden_size'):
+            self.encoder_hidden_size = int(self.encoder_hidden_size)
+        if hasattr(self, 'encoder_n_layers'):
+            self.encoder_n_layers = int(self.encoder_n_layers)
+        if hasattr(self, 'batch_size'):
+            self.batch_size = int(self.batch_size)
+        return super().fit(y=y, X=X, fh=fh)
+
 
 def set_lstm_test(cv, gw_included):
     if gw_included == True:
@@ -292,7 +305,7 @@ def set_lstm_test(cv, gw_included):
         futr_exog_list= ['TMAX (Degrees Fahrenheit)',
                                 'PRCP (Inches)', 'SNOW (Inches)', 'SNWD (Inches)']
     
-    lstm = NeuralForecastLSTM(  
+    lstm = CastingNeuralForecastLSTM(  
         local_scaler_type = 'minmax',
         futr_exog_list = futr_exog_list,
         verbose_fit = True,
@@ -301,24 +314,47 @@ def set_lstm_test(cv, gw_included):
         batch_size=32,
         #encoder_n_layers = 2,
         #encoder_hidden_size = 200,
-        learning_rate=0.001,
+        encoder_dropout = 0.2,
+        #learning_rate=0.001,
         max_steps = 200, # Relatively low to keep runtime manageable
     )
 
-    param_grid = {
-        'encoder_n_layers' : [1, 2],
-        'encoder_hidden_size' : [64, 128],
-    }
+    # param_grid = {
+    #     'encoder_n_layers' : [1, 2],
+    #     'encoder_hidden_size' : [64, 128],
+    # }
 
-    gscv = ForecastingGridSearchCV(
-        forecaster=lstm,
-        param_grid=param_grid,
-        cv=cv,
+    # gscv = ForecastingGridSearchCV(
+    #     forecaster=lstm,
+    #     param_grid=param_grid,
+    #     cv=cv,
+    #     verbose=2,
+    #     scoring=MeanSquaredError(square_root=True), # RMSE
+    #     error_score='raise',
+    # )
+
+    param_distributions = {
+        'encoder_n_layers' :    (1, 3, 'uniform'),
+        'encoder_hidden_size' : (64, 256, 'log-uniform'), # list enables int interpretation
+        'learning_rate' :       (0.001, 0.01, 'log-uniform')
+        }
+    
+    tuner = ForecastingSkoptSearchCV(
+        forecaster = lstm,
+        param_distributions = param_distributions,
+        cv = cv,
+        n_iter = 32, # will cause high runtime, but might be worth it
+        n_points = 1, # allows fitting to multiple folds
+        scoring=MeanSquaredError(square_root=True),
+        random_state = 142,
         verbose=2,
-        scoring=MeanSquaredError(square_root=True), # RMSE
         error_score='raise',
-    )
-    return gscv
+        refit=True,
+        backend='loky',
+        backend_params={'n_jobs':6}
+       )
+
+    return tuner
 
 
 # Returns a dataframe of daily averages for each input variable
@@ -350,11 +386,11 @@ def set_arima():
         sp=365,
         start_P=0,  # no seasonal AR terms
         start_Q=0,    # no seasonal MA terms
-        max_P=0,    # no seasonal AR terms
-        max_Q=0,    # no seasonal MA terms
+        max_P=1,    # 1 seasonal AR terms
+        max_Q=1,    # 1 seasonal MA terms
         max_D=1,    # allow seasonal differencing only
-        max_p=2,    # looks back at most 2 most recent values
-        max_q=2,    # looks back at most 2 most recent errors, 
+        max_p=3,    # looks back at most 3 most recent values
+        max_q=3,    # looks back at most 3 most recent errors, 
         max_d=1,    # allows differencing to make the series stationary
         stepwise=True,
         information_criterion='aicc',
@@ -374,7 +410,7 @@ def evaluate_arima(arima, y_train_val, cv, X=None):
 
 # Moving average plot
 def moving_average_plot(letter, df, window_size):
-    os.makedirs('plots', exist_ok=True)
+    os.makedirs(f'results/{letter}/plots', exist_ok=True)
     df['moving_average'] = df['discharge'].rolling(window=window_size).mean()
     sns.lineplot(x=df.index, y=df['discharge'], label='Discharge')
     sns.lineplot(x=df.index, y=df['moving_average'], label=f'Moving Average (window={window_size})')
@@ -382,7 +418,7 @@ def moving_average_plot(letter, df, window_size):
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/moving_average_window_{window_size}_{letter}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'results/{letter}/plots/moving_average_window_{window_size}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 # Forecast vs actual plot
@@ -392,7 +428,7 @@ def forecast_vs_actual_plot(letter, y_true, y_lstm_pred, y_arima_pred, gw_includ
     else:
         title_suffix = "without Groundwater"
     
-    os.makedirs('plots', exist_ok=True)
+    os.makedirs(f'results/{letter}/plots', exist_ok=True)
     plt.figure(figsize=(10, 6))
     sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
     sns.lineplot(x=y_lstm_pred.index, y=y_lstm_pred.values, label='LSTM Predicted Discharge')
@@ -401,11 +437,11 @@ def forecast_vs_actual_plot(letter, y_true, y_lstm_pred, y_arima_pred, gw_includ
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/forecast_vs_actual_{title_suffix.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'results/{letter}/plots/forecast_vs_actual_{title_suffix.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 def compare_forecasts_plots(letter, y_true, gw_included, gw_absent, model_type):
-    os.makedirs('plots', exist_ok=True)
+    os.makedirs(f'results/{letter}/plots', exist_ok=True)
     plt.figure(figsize=(10, 6))
     sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
     sns.lineplot(x=gw_included.index, y=gw_included.values, label=f'{model_type} with Groundwater')
@@ -414,16 +450,16 @@ def compare_forecasts_plots(letter, y_true, gw_included, gw_absent, model_type):
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/compare_forecasts_{model_type.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'results/{letter}/plots/compare_forecasts_{model_type.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 def save_data(letter, pre_model_df, y_true, y_lstm_pred_gw, y_arima_pred_gw, y_lstm_pred_no, y_arima_pred_no, X_true):
-    os.makedirs(letter, exist_ok=True)
-    pre_model_df.to_csv(f"{letter}/{letter}_pre_model_data.csv")
+    os.makedirs(f"results/{letter}", exist_ok=True)
+    pre_model_df.to_csv(f"results/{letter}/{letter}_pre_model_data.csv")
     forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred_gw': y_lstm_pred_gw, 'y_arima_pred_gw': y_arima_pred_gw, 
                                 'y_lstm_pred_no': y_lstm_pred_no, 'y_arima_pred_no': y_arima_pred_no})
     forecast_df = pd.concat([forecast_df, X_true], axis=1)
-    forecast_df.to_csv(f"{letter}/{letter}_forecast_data.csv")
+    forecast_df.to_csv(f"results/{letter}/{letter}_forecast_data.csv")
 
 
 def save_run_results(letter, results_arima_gw, results_arima_no, 
@@ -453,3 +489,38 @@ def save_run_results(letter, results_arima_gw, results_arima_no,
     }
     with open(out_dir / "all_scores.json", "w") as f:
         json.dump(scores, f, indent=2)
+
+       
+def save_lstm_details(letter, gscv_lstm, results_label, out_dir):
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    with open(out_dir / f"lstm_{results_label}_details.txt", "w") as f:
+        # Best hyperparameters from grid search
+        f.write("=== Best Parameters ===\n")
+        f.write(str(gscv_lstm.best_params_) + "\n\n")
+    
+        # Best CV score
+        f.write("=== Best CV Score (RMSE) ===\n")
+        f.write(str(gscv_lstm.best_score_) + "\n\n")
+    
+        # Full CV results across all parameter combinations
+        f.write("=== All CV Results ===\n")
+        f.write(str(gscv_lstm.cv_results_) + "\n\n")
+    
+        # Underlying NeuralForecast model config
+        f.write("=== Forecaster Config ===\n")
+        f.write(str(gscv_lstm.best_forecaster_) + "\n")
+    
+def save_all_models(letter, gw_lstm_model, no_lstm_model, gw_arima_model, no_arima_model):
+    
+    out_dir = Path(f"results/{letter}/models")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    save_model(gw_lstm_model,  out_dir / "lstm_gw")
+    save_model(no_lstm_model,  out_dir / "lstm_no")
+    save_model(gw_arima_model, out_dir / "arima_gw")
+    save_model(no_arima_model, out_dir / "arima_no")
+
+    print(f"All models saved to results/{letter}/models/")
+    
