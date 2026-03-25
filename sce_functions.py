@@ -312,47 +312,46 @@ def set_lstm_test(cv, gw_included):
         verbose_predict = True,
         input_size = 365, # uses past year of data
         batch_size=32,
-        #encoder_n_layers = 2,
+        encoder_n_layers = 2,
         #encoder_hidden_size = 200,
         encoder_dropout = 0.2,
-        #learning_rate=0.001,
+        learning_rate=0.005,
         max_steps = 200, # Relatively low to keep runtime manageable
     )
 
-    # param_grid = {
-    #     'encoder_n_layers' : [1, 2],
-    #     'encoder_hidden_size' : [64, 128],
-    # }
+    param_grid = {
+        'encoder_hidden_size' : [64, 128, 256],
+    }
 
-    # gscv = ForecastingGridSearchCV(
-    #     forecaster=lstm,
-    #     param_grid=param_grid,
-    #     cv=cv,
-    #     verbose=2,
-    #     scoring=MeanSquaredError(square_root=True), # RMSE
-    #     error_score='raise',
-    # )
-
-    param_distributions = {
-        'encoder_n_layers' :    (1, 3, 'uniform'),
-        'encoder_hidden_size' : (64, 256, 'log-uniform'), # list enables int interpretation
-        'learning_rate' :       (0.001, 0.01, 'log-uniform')
-        }
-    
-    tuner = ForecastingSkoptSearchCV(
-        forecaster = lstm,
-        param_distributions = param_distributions,
-        cv = cv,
-        n_iter = 32, # will cause high runtime, but might be worth it
-        n_points = 4, # allows fitting to multiple folds
-        scoring=MeanSquaredError(square_root=True),
-        random_state = 142,
+    gscv = ForecastingGridSearchCV(
+        forecaster=lstm,
+        param_grid=param_grid,
+        cv=cv,
         verbose=2,
+        scoring=MeanSquaredError(square_root=True), # RMSE
         error_score='raise',
-        refit=True,
-        backend='loky',
-        backend_params={'n_jobs':6}
-       )
+    )
+
+    # param_distributions = {
+    #     'encoder_n_layers' :    (1, 3, 'uniform'),
+    #     'encoder_hidden_size' : (64, 256, 'log-uniform'), # list enables int interpretation
+    #     'learning_rate' :       (0.001, 0.01, 'log-uniform')
+    #     }
+    
+    # tuner = ForecastingSkoptSearchCV(
+    #     forecaster = lstm,
+    #     param_distributions = param_distributions,
+    #     cv = cv,
+    #     n_iter = 32, # will cause high runtime, but might be worth it
+    #     n_points = 4, # allows fitting to multiple folds
+    #     scoring=MeanSquaredError(square_root=True),
+    #     random_state = 142,
+    #     verbose=2,
+    #     error_score='raise',
+    #     refit=True,
+    #     backend='loky',
+    #     backend_params={'n_jobs':6}
+    #    )
 
     return tuner
 
