@@ -323,7 +323,7 @@ def set_lstm_test(cv, gw_included):
         'encoder_hidden_size' : [64, 128, 256],
     }
 
-    gscv = ForecastingGridSearchCV(
+    tuner = ForecastingGridSearchCV(
         forecaster=lstm,
         param_grid=param_grid,
         cv=cv,
