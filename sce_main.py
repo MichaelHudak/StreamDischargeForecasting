@@ -91,7 +91,7 @@ data_source_dict = {
 
 # In[ ]:
 
-letter = "C" # change this to run for different locations
+letter = "B" # change this to run for different locations
 stream_df = get_stream_data(data_source_dict[letter]["stream"])
 print(stream_df.head())
 
