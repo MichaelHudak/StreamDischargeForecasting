@@ -374,7 +374,7 @@ def evaluate_arima(arima, y_train_val, cv, X=None):
 
 # Moving average plot
 def moving_average_plot(letter, df, window_size):
-    os.makedirs('results/{letter}/plots', exist_ok=True)
+    os.makedirs(f'results/{letter}/plots', exist_ok=True)
     df['moving_average'] = df['discharge'].rolling(window=window_size).mean()
     sns.lineplot(x=df.index, y=df['discharge'], label='Discharge')
     sns.lineplot(x=df.index, y=df['moving_average'], label=f'Moving Average (window={window_size})')
@@ -392,7 +392,7 @@ def forecast_vs_actual_plot(letter, y_true, y_lstm_pred, y_arima_pred, gw_includ
     else:
         title_suffix = "without Groundwater"
     
-    os.makedirs('results/{letter}/plots', exist_ok=True)
+    os.makedirs(f'results/{letter}/plots', exist_ok=True)
     plt.figure(figsize=(10, 6))
     sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
     sns.lineplot(x=y_lstm_pred.index, y=y_lstm_pred.values, label='LSTM Predicted Discharge')
@@ -419,7 +419,7 @@ def compare_forecasts_plots(letter, y_true, gw_included, gw_absent, model_type):
 
 def save_data(letter, pre_model_df, y_true, y_lstm_pred_gw, y_arima_pred_gw, y_lstm_pred_no, y_arima_pred_no, X_true):
     os.makedirs(f"results/{letter}", exist_ok=True)
-    pre_model_df.to_csv(f"{letter}/{letter}_pre_model_data.csv")
+    pre_model_df.to_csv(f"results/{letter}/{letter}_pre_model_data.csv")
     forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred_gw': y_lstm_pred_gw, 'y_arima_pred_gw': y_arima_pred_gw, 
                                 'y_lstm_pred_no': y_lstm_pred_no, 'y_arima_pred_no': y_arima_pred_no})
     forecast_df = pd.concat([forecast_df, X_true], axis=1)
