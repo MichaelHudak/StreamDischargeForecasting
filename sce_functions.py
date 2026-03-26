@@ -350,8 +350,8 @@ def set_arima():
         sp=365,
         start_P=0,  # no seasonal AR terms
         start_Q=0,    # no seasonal MA terms
-        max_P=1,    # no seasonal AR terms
-        max_Q=1,    # no seasonal MA terms
+        max_P=0,    # no seasonal AR terms
+        max_Q=0,    # no seasonal MA terms
         max_D=1,    # allow seasonal differencing only
         max_p=2,    # looks back at most 2 most recent values
         max_q=2,    # looks back at most 2 most recent errors, 
