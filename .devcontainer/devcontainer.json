@@ -1,5 +1,5 @@
 {
-  "name": "Python 3.11 Research Env",
+  "name": "Python 3.12.1 Research Env",
   "image": "mcr.microsoft.com/devcontainers/python:3.11-bullseye",
   "features": {},
   "postCreateCommand": "sudo apt-get update && sudo apt-get install -y build-essential && pip install --upgrade pip && pip install -r requirements.txt"
