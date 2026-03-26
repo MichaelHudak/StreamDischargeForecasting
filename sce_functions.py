@@ -301,13 +301,13 @@ def set_lstm_test(cv, gw_included):
         batch_size=32,
         #encoder_n_layers = 2,
         #encoder_hidden_size = 200,
-        learning_rate=0.001,
+        learning_rate=0.005,
         max_steps = 200, # Relatively low to keep runtime manageable
     )
 
     param_grid = {
-        'encoder_n_layers' : [1, 2],
-        'encoder_hidden_size' : [64, 128],
+        'encoder_n_layers' : [2],
+        'encoder_hidden_size' : [128],
     }
 
     gscv = ForecastingGridSearchCV(
@@ -350,8 +350,8 @@ def set_arima():
         sp=365,
         start_P=0,  # no seasonal AR terms
         start_Q=0,    # no seasonal MA terms
-        max_P=0,    # no seasonal AR terms
-        max_Q=0,    # no seasonal MA terms
+        max_P=1,    # no seasonal AR terms
+        max_Q=1,    # no seasonal MA terms
         max_D=1,    # allow seasonal differencing only
         max_p=2,    # looks back at most 2 most recent values
         max_q=2,    # looks back at most 2 most recent errors, 
@@ -374,7 +374,7 @@ def evaluate_arima(arima, y_train_val, cv, X=None):
 
 # Moving average plot
 def moving_average_plot(letter, df, window_size):
-    os.makedirs('plots', exist_ok=True)
+    os.makedirs('results/{letter}/plots', exist_ok=True)
     df['moving_average'] = df['discharge'].rolling(window=window_size).mean()
     sns.lineplot(x=df.index, y=df['discharge'], label='Discharge')
     sns.lineplot(x=df.index, y=df['moving_average'], label=f'Moving Average (window={window_size})')
@@ -382,7 +382,7 @@ def moving_average_plot(letter, df, window_size):
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/moving_average_window_{window_size}_{letter}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'results/{letter}/plots/moving_average_window_{window_size}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 # Forecast vs actual plot
@@ -392,7 +392,7 @@ def forecast_vs_actual_plot(letter, y_true, y_lstm_pred, y_arima_pred, gw_includ
     else:
         title_suffix = "without Groundwater"
     
-    os.makedirs('plots', exist_ok=True)
+    os.makedirs('results/{letter}/plots', exist_ok=True)
     plt.figure(figsize=(10, 6))
     sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
     sns.lineplot(x=y_lstm_pred.index, y=y_lstm_pred.values, label='LSTM Predicted Discharge')
@@ -401,11 +401,11 @@ def forecast_vs_actual_plot(letter, y_true, y_lstm_pred, y_arima_pred, gw_includ
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/forecast_vs_actual_{title_suffix.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'results/{letter}/plots/forecast_vs_actual_{title_suffix.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 def compare_forecasts_plots(letter, y_true, gw_included, gw_absent, model_type):
-    os.makedirs('plots', exist_ok=True)
+    os.makedirs(f'results/{letter}/plots', exist_ok=True)
     plt.figure(figsize=(10, 6))
     sns.lineplot(x=y_true.index, y=y_true.values, label='Actual Discharge')
     sns.lineplot(x=gw_included.index, y=gw_included.values, label=f'{model_type} with Groundwater')
@@ -414,16 +414,16 @@ def compare_forecasts_plots(letter, y_true, gw_included, gw_absent, model_type):
     plt.xlabel('Date')
     plt.ylabel('Discharge')
     plt.legend()
-    plt.savefig(f'plots/compare_forecasts_{model_type.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'results/{letter}/plots/compare_forecasts_{model_type.lower().replace(" ", "_")}_{letter}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 def save_data(letter, pre_model_df, y_true, y_lstm_pred_gw, y_arima_pred_gw, y_lstm_pred_no, y_arima_pred_no, X_true):
-    os.makedirs(letter, exist_ok=True)
+    os.makedirs(f"results/{letter}", exist_ok=True)
     pre_model_df.to_csv(f"{letter}/{letter}_pre_model_data.csv")
     forecast_df = pd.DataFrame({'y_true': y_true, 'y_lstm_pred_gw': y_lstm_pred_gw, 'y_arima_pred_gw': y_arima_pred_gw, 
                                 'y_lstm_pred_no': y_lstm_pred_no, 'y_arima_pred_no': y_arima_pred_no})
     forecast_df = pd.concat([forecast_df, X_true], axis=1)
-    forecast_df.to_csv(f"{letter}/{letter}_forecast_data.csv")
+    forecast_df.to_csv(f"results/{letter}/{letter}_forecast_data.csv")
 
 
 def save_run_results(letter, results_arima_gw, results_arima_no, 
