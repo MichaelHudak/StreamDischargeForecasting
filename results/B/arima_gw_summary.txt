@@ -2,8 +2,8 @@
 ==============================================================================
 Dep. Variable:                      y   No. Observations:                 5450
 Model:               SARIMAX(2, 1, 2)   Log Likelihood                1830.677
-Date:                Sun, 15 Mar 2026   AIC                          -3641.354
-Time:                        17:06:50   BIC                          -3575.322
+Date:                Fri, 27 Mar 2026   AIC                          -3641.354
+Time:                        01:26:50   BIC                          -3575.322
 Sample:                    01-01-2010   HQIC                         -3618.312
                          - 12-02-2024                                         
 Covariance Type:                  opg                                         
