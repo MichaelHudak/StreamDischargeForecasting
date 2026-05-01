@@ -41,7 +41,7 @@ from sktime.split import temporal_train_test_split
 # ## Define constants & codes
 START_DATE= "2010-01-01"
 END_DATE = "2025-01-01"
-USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
+USGS_KEY = ""
 
 loc_stat_ids = {
     #gw site w/ readings at 12:00, ft -- 31200
