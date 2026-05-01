@@ -21,7 +21,7 @@ print(sys.version)
 print(sys.executable)
 
 # In[31]:
-from sce_functions import *
+from functions import *
 import pandas as pd
 import numpy as np
 import plotly.express as px
