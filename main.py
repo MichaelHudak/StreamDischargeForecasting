@@ -57,24 +57,14 @@ from permetrics.regression import RegressionMetric
 # LSTM libraries
 from sktime.split import temporal_train_test_split
 
-# ## Define constants & codes
+# Define constants & codes
 START_DATE= "2010-01-01"
 END_DATE = "2025-01-01"
-USGS_KEY = "SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8"
 
+# Get your own USGS API key from the link below
+USGS_KEY = ""
 # https://api.waterdata.usgs.gov/ogcapi/v0/openapi?f=html#/daily/SW1b2R5vFngjPzlWbq3XMQrboglYbpQQcdd1Wcc8
 
-
-# In[ ]:
-loc_stat_ids = {
-    #gw site w/ readings at 12:00, ft -- 31200
-    # Depth to water level, feet below land surface -- 72019
-    'USGS-400209077183301' : "00003", 
-    'USGS-402735077100901' : "00003", 
-    'USGS-412427076594401' : "00003", 
-    'USGS-420710077052101' : "00003", 
-    'USGS-420815076155501' : "00003", 
-}
 
 data_source_dict = {
     'A' : {'stream': 'USGS-01571184', 'gw': 'USGS-400209077183301',
