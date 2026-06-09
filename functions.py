@@ -224,7 +224,7 @@ def include_gw(df, yes_no):
 
 
 
-# Splits train and test data, kwwping the real test data out of model training
+# Splits train and test data, keeping the real test data out of model training
 # Will still split X_train and y_train for validation
 def data_split(unsplit_df, forecast_horizon):
     y_train_val, y_test, X_train_val, X_test = temporal_train_test_split(
